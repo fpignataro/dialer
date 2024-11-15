@@ -147,6 +147,58 @@ services:
       - postgresql
       - worker
 
+
+  asterisk:
+    container_name: omnidialer-asterisk
+    build:
+      context: ./asterisk/
+    volumes:
+      - ./asterisk/conf:/etc/asterisk
+    dns: 8.8.8.8
+    environment:
+      - TZ=${TZ}
+      - ARI_USER=${ASTERISK_USER}
+      - ARI_PASS=${ASTERISK_PASS}
+      - ASTERISK_DIALER_HOSTNAME=0.0.0.0
+      - OMLACD_HOSTNAME=${OMLACD_SIP_HOSTNAME}
+      # - PSTNGW_SIP_USER=${PSTNGW_SIP_USER}
+      # - PSTNGW_SIP_PASS=${PSTNGW_SIP_PASS}
+      # - PSTNGW_HOSTNAME=${PSTNGW_HOSTNAME}
+      # - PSTNGW_REGISTER=${PSTNGW_REGISTER}
+      # - PSTNGW_SIP_AUTH=${PSTNGW_SIP_AUTH}
+    networks:
+      - network1
+    privileged: true
+    restart: on-failure
+    stop_grace_period: 30s
+    working_dir: /etc/asterisk
+    
+    
+  call_manager:
+    build:
+      target: run
+      context: ./call_manager/
+    volumes:
+      - ./call_manager/src:/app
+    container_name: omnidialer-call_manager
+    depends_on:
+      - asterisk
+    #image: ${OMLDIALER_CALL_MANAGER_IMG}
+    command: python /app/dialer_call_manager.py
+    environment:
+      - TZ=${TZ}
+      - REDIS_HOSTNAME=${REDIS_OML_SERVER}
+      - REDIS_PORT=${REDIS_OML_PORT}
+      - ARI_HOST=${ASTERISK_HOST}
+      - ARI_PORT=${ASTERISK_PORT}
+      - ARI_USER=${ASTERISK_USER}
+      - ARI_PASS=${ASTERISK_PASS}
+    restart: on-failure
+    stop_grace_period: 30s
+    networks:
+      - network1  
+    
+
 networks:
   network1:
     name: ${NETWORK}

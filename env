@@ -1,7 +1,7 @@
 TZ=America/Argentina/Cordoba
 ASTERISK_USER=omnileadsami
 ASTERISK_PASS=5_MeO_DMT
-ASTERISK_HOST=dialer_acd
+ASTERISK_HOST=asterisk
 ASTERISK_PORT=8888
 ASTERISK_APP_DIALER=call_manager_dialer
 ASTERISK_APP=call_manager
@@ -22,3 +22,15 @@ POSTGRES_DIALER_SERVER=dialer-postgres
 POSTGRES_DIALER_PORT=5433
 POSTGRES_DIALER_DB=omnidialer
 NETWORK=devenv_omnileads
+ 
+# Asterisk
+# PSTNGW_REGISTER=yes
+# PSTNGW_SIP_AUTH=yes
+# PSTNGW_SIP_USER=01177660020
+# PSTNGW_SIP_PASS=omnileads
+# PSTNGW_HOSTNAME=oml-pbxemulator:5070
+### ACD omnileads asterisk ACD SIP Peer (for asterisk)
+OMLACD_SIP_HOSTNAME=oml-asterisk:5260
+### Dialer omnileads asterisk (for call_manager WS)
+DIALER_ASTERISK_SIP_HOSTNAME=dialer_asterisk:5060
+
