@@ -1,10 +1,10 @@
 services:
+  # Flask HTTP API server
   api:
     build:
       target: run
       context: ./interface/src
     image: ${API_IMG}
-    container_name: omnidialer-api
     ports:
       - '1440:1440'
     networks:
@@ -14,26 +14,22 @@ services:
     stdin_open: true
     depends_on:
       - job_server
-      - postgresql
+      - postgres
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
-
+  # Gearman Job Server
   job_server:
-    image: artefactual/gearmand:1.1.18-alpine
-    container_name: gearman_job_server_1
+    image: ${GEARMAN_IMG}
     ports:
       - '4730:4730'
     networks:
       - network1
     command: gearmand -t 1
-
-  scheduler:
+  # Worker Dialer Scheduler 
+  scheduler_worker:
     build:
       context: ./scheduler/src
-    image: ${SCHEDULER_IMG}
-    container_name: omnidialer-scheduler
-    volumes:
-      - ./scheduler/src:/app
+    image: ${SCHEDULER_IMG}  
     ports:
       - '1441:1441'
     networks:
@@ -48,9 +44,8 @@ services:
       - REDIS_DIALER_SERVER=${REDIS_DIALER_SERVER}
       - REDIS_DIALER_PORT=${REDIS_DIALER_PORT}
       - TZ=${TZ}
-
-  websocket_ari:
-    container_name: omnidialer_websocket_ari
+  # Worker Dialer Websocket Event LISTENER
+  listener_worker:
     build:
       context: ./websocket_ari/src
     image: ${LISTENER_IMG}  
@@ -65,320 +60,276 @@ services:
       - ASTERISK_PASS=${ASTERISK_PASS}
       - ASTERISK_APP=${ASTERISK_APP}
       - ASTERISK_APP_DIALER=${ASTERISK_APP_DIALER}
-      - TZ=${TZ}
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
+      - TZ=${TZ}
     depends_on:
       - job_server
-      - postgresql
-      - worker
-
-  redisinsight:
-    container_name: omnidialer-redisinsight
-    dns: 8.8.8.8
-    environment:
-      - TZ=${TZ}
-      - BIND_IP=0.0.0.0
-    networks:
-      - network1
-    ports:
-      - '5540:5540'
-    expose:
-      - '5540'
-    image: redis/redisinsight:latest
-    privileged: true
-    restart: on-failure
-    stop_grace_period: 1m30s
-    volumes:
-      - redis_redisinsight:/data
-
-  worker:
+      - postgres
+      - start_campaign_worker
+      - asterisk
+  # Worker Dialer Process Contact
+  process_contact_worker:
     build:
       context: ./workers/handle-campaign/src
     image: ${WORKER_IMG}
-    networks:
-      - network1
-    tty: true
-    stdin_open: true
-    environment:
-      - ASTERISK_HOST=${ASTERISK_HOST}
-      - ASTERISK_PORT=${ASTERISK_PORT}
-      - ASTERISK_USER=${ASTERISK_USER}
-      - ASTERISK_PASS=${ASTERISK_PASS}
-      - ASTERISK_APP=${ASTERISK_APP}
-      - REDIS_OML_SERVER=${REDIS_OML_SERVER}
-      - REDIS_OML_PORT=${REDIS_OML_PORT}
-      - REDIS_DIALER_SERVER=${REDIS_DIALER_SERVER}
-      - REDIS_DIALER_PORT=${REDIS_DIALER_PORT}
-      - POSTGRES_OML_PASSWORD=${POSTGRES_OML_PASSWORD}
-      - POSTGRES_OML_SERVER=${POSTGRES_OML_SERVER}
-      - POSTGRES_OML_PORT=${POSTGRES_OML_PORT}
-      - POSTGRES_DIALER_PASSWORD=${POSTGRES_DIALER_PASSWORD}
-      - POSTGRES_DIALER_SERVER=${POSTGRES_DIALER_SERVER}
-      - POSTGRES_DIALER_PORT=${POSTGRES_DIALER_PORT}
-      - TZ=${TZ}
-      - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
-      - GEARMAN_JOBS=start-campaign
-      - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
-      - DIALER_ACD_HOST=${DIALER_ACD_HOST}
-    depends_on:
-      - job_server
-      - postgresql
-
-  process_contact_worker:
-    image: ${WORKER_IMG}
     deploy:
-      replicas: 3
+      replicas: ${PROCESS_CONTACT_REPLICAS}
     env_file: .env
     environment:
       - GEARMAN_JOBS=process-contact
     depends_on:
       - job_server
-      - postgresql
+      - postgres
     networks:
       - network1
-
+  # Worker Dialer Process Campaign
   process_campaign_worker:
     image: ${WORKER_IMG}
-    env_file: .env
     deploy:
-      replicas: 5
+      replicas: ${PROCESS_CAMPAIGN_REPLICAS}
+    env_file: .env
     environment:
       - GEARMAN_JOBS=process-campaign
       - CAPS=${CAPS}
     networks:
       - network1
-
-  create_campaign_worker:
-    image: ${WORKER_IMG}
-    container_name: create-campaign-1
-    env_file: .env
-    depends_on:
-      - job_server
-      - postgresql
-    environment:
-      - GEARMAN_JOBS=create-campaign
-    networks:
-      - network1
-
-  resume_campaign_worker:
-    image: ${WORKER_IMG}
-    container_name: resume-campaign-1
-    env_file: .env
-    depends_on:
-      - job_server
-      - postgresql
-    environment:
-      - GEARMAN_JOBS=resume-campaign
-    networks:
-      - network1
-
-  edit_campaign_worker:
-    image: ${WORKER_IMG}
-    container_name: edit-campaign-1
-    env_file: .env
-    depends_on:
-      - job_server
-      - postgresql
-    environment:
-      - GEARMAN_JOBS=edit-campaign
-    networks:
-      - network1
-
-  stop_campaign_worker:
-    image: ${WORKER_IMG}
-    container_name: stop-campaign-1
-    env_file: .env
-    depends_on:
-      - job_server
-      - postgresql
-    environment:
-      - GEARMAN_JOBS=stop-campaign
-    networks:
-      - network1
-
-  pause_campaign_worker:
-    image: ${WORKER_IMG}
-    container_name: pause-campaign-1
-    env_file: .env
-    depends_on:
-      - job_server
-      - postgresql
-    environment:
-      - GEARMAN_JOBS=pause-campaign
-    networks:
-      - network1
-
-  delete_campaign_worker:
-    image: ${WORKER_IMG}
-    container_name: delete-campaign-1
-    env_file: .env
-    depends_on:
-      - job_server
-      - postgresql
-    environment:
-      - GEARMAN_JOBS=delete-campaign
-    networks:
-      - network1
-
+  # Worker Dialer Process Event
   process_event_worker:
     image: ${WORKER_IMG}
-    container_name: process-event-1
+    deploy:
+      replicas: ${PROCESS_EVENT_REPLICAS}
     env_file: .env
     environment:
       - GEARMAN_JOBS=process-event
     networks:
-      - network1
-
-  schedule_contact_worker:
+      - network1  
+  # Worker Dialer Start Campaign
+  start_campaign_worker:
     image: ${WORKER_IMG}
-    container_name: schedule-contact-1
+    networks:
+      - network1
+    tty: true
+    stdin_open: true
     env_file: .env
     depends_on:
       - job_server
-      - postgresql
+      - postgres
+  # Worker Dialer Create Campaign
+  create_campaign_worker:
+    image: ${WORKER_IMG}
+    env_file: .env
+    depends_on:
+      - job_server
+      - postgres
+    environment:
+      - GEARMAN_JOBS=create-campaign
+    networks:
+      - network1
+  # Worker Dialer Resume Campaign
+  resume_campaign_worker:
+    image: ${WORKER_IMG}
+    env_file: .env
+    depends_on:
+      - job_server
+      - postgres
+    environment:
+      - GEARMAN_JOBS=resume-campaign
+    networks:
+      - network1
+  # Worker Dialer Edit Campaign
+  edit_campaign_worker:
+    image: ${WORKER_IMG}
+    env_file: .env
+    depends_on:
+      - job_server
+      - postgres
+    environment:
+      - GEARMAN_JOBS=edit-campaign
+    networks:
+      - network1
+  # Worker Dialer Stop Campaign
+  stop_campaign_worker:
+    image: ${WORKER_IMG}
+    env_file: .env
+    depends_on:
+      - job_server
+      - postgres
+    environment:
+      - GEARMAN_JOBS=stop-campaign
+    networks:
+      - network1
+  # Worker Dialer Pause Campaign
+  pause_campaign_worker:
+    image: ${WORKER_IMG}
+    env_file: .env
+    depends_on:
+      - job_server
+      - postgres
+    environment:
+      - GEARMAN_JOBS=pause-campaign
+    networks:
+      - network1
+  # Worker Dialer Delete Campaign
+  delete_campaign_worker:
+    image: ${WORKER_IMG}
+    env_file: .env
+    depends_on:
+      - job_server
+      - postgres
+    environment:
+      - GEARMAN_JOBS=delete-campaign
+    networks:
+      - network1
+  # Worker Dialer Schedule Contact
+  schedule_contact_worker:
+    image: ${WORKER_IMG}
+    env_file: .env
+    depends_on:
+      - job_server
+      - postgres
     environment:
       - GEARMAN_JOBS=schedule-contact
     networks:
       - network1
-
+  # Worker Dialer Send Reports
   send_reports_worker:
     image: ${WORKER_IMG}
-    container_name: send-reports-1
     env_file: .env
     depends_on:
       - job_server
-      - postgresql
+      - postgres
     environment:
       - GEARMAN_JOBS=send-reports
     networks:
       - network1
-
+  # Worker Dialer Add Incidence Rule Disposition
   add_incidence_rule_disposition_worker:
     image: ${WORKER_IMG}
-    container_name: add-incidence-rule-disposition-1
     env_file: .env
     depends_on:
       - job_server
-      - postgresql
+      - postgres
     environment:
       - GEARMAN_JOBS=add-incidence-rule-disposition
     networks:
       - network1
-
-  change_database_worker:
-    image: ${WORKER_IMG}
-    container_name: change-database-1
-    env_file: .env
-    depends_on:
-      - job_server
-      - postgresql
-    environment:
-      - GEARMAN_JOBS=change-database
-    networks:
-      - network1
-
+  # Worker Dialer Create Incidence Rule
   create_incidence_rule_worker:
     image: ${WORKER_IMG}
-    container_name: create-incidence-rule-1
     env_file: .env
     depends_on:
       - job_server
-      - postgresql
+      - postgres
     environment:
       - GEARMAN_JOBS=create-incidence-rule
     networks:
       - network1
-
+  # Worker Dialer Delete Incidence Rule
   delete_incidence_rule_worker:
     image: ${WORKER_IMG}
-    container_name: delete-incidence-rule-1
     env_file: .env
     depends_on:
       - job_server
-      - postgresql
+      - postgres
     environment:
       - GEARMAN_JOBS=delete-incidence-rule
     networks:
       - network1
-
+  # Worker Dialer Update Incidence Rule
   update_incidence_rule_worker:
     image: ${WORKER_IMG}
-    container_name: update-incidence-rule-1
     env_file: .env
     depends_on:
       - job_server
-      - postgresql
+      - postgres
     environment:
       - GEARMAN_JOBS=update-incidence-rule
     networks:
-      - network1
-
-  schedule-agenda:
+      - network1  
+  # Worker Dialer Schedule Agenda
+  schedule_agenda_worker:
     image: ${WORKER_IMG}
-    container_name: schedule-agenda-1
     env_file: .env
     depends_on:
       - job_server
-      - postgresql
+      - postgres
     environment:
       - GEARMAN_JOBS=schedule-agenda
     networks:
       - network1
-
-  dialer_asterisk:
+  # Worker Dialer Change Database
+  change_database_worker:
+    image: ${WORKER_IMG}
+    env_file: .env
+    depends_on:
+      - job_server
+      - postgres
+    environment:
+      - GEARMAN_JOBS=change-database
+    networks:
+      - network1    
+  # Dialer Asterisk ARI server
+  asterisk:
+    image: ${ASTERISK_IMG}  
     build:
       context: ./asterisk/
-    image: ${ASTERISK_IMG}  
-    container_name: dialer_asterisk  
-    dns: 8.8.8.8
     env_file:
-      - .env
-    networks:
-      network1:
-          ipv4_address: ${ASTERISK_IPV4}
+      - .env    
     privileged: true
     restart: on-failure
     stop_grace_period: 30s
     working_dir: /etc/asterisk
-     
-  dialer_dialplan:
+    networks:
+      - network1
+    ports:
+      - 10061:10061/udp
+  # Dialer Dialplan ARI-App chan_tel_dialer
+  dialplan:
+    image: ${DIALPLAN_IMG}  
     build:
       target: run
       context: ./dialplan/
-    image: ${DIALPLAN_IMG}  
-    container_name: omnidialer-dialplan
     depends_on:
-      - dialer_asterisk
+      - asterisk
     env_file:
       - .env  
     restart: on-failure
     stop_grace_period: 30s
     networks:
-      - network1  
-
-  postgresql:
-    container_name: dialer-postgres
+      - network1
+  # PostgreSQL Database
+  postgres:
+    image: ${POSTGRES_IMG}
     dns: 8.8.8.8
     environment:
-      - TZ=${TZ}
       - POSTGRES_USER=${POSTGRES_DIALER_USER}
       - POSTGRES_PASSWORD=${POSTGRES_DIALER_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DIALER_DB}
-      - PGPORT=5433
-    image: ${POSTGRES_IMG}
+      - PGPORT=${POSTGRES_DIALER_PORT}
+      - TZ=${TZ}
     networks:
       - network1
-    expose:
-      - "5433"
     ports:
-      - ${POSTGRES_DIALER_PORT}:5433
+      - ${POSTGRES_DIALER_PORT}:${POSTGRES_DIALER_PORT}
     privileged: true
     restart: on-failure
     stop_grace_period: 1m30s
     volumes:
-      - omnidialer-postgresql:/var/lib/postgresql/data
+      - postgres:/var/lib/postgresql/data
       - ./omnidialer.sql:/docker-entrypoint-initdb.d/init.sql
-
+  # Redis cache DB
+  redis:
+    image: ${REDIS_IMG}
+    dns: 8.8.8.8
+    environment:
+      - BIND_IP=0.0.0.0
+    networks:
+      - network1
+    expose:
+      - '6379'    
+    volumes:
+      - redis:/data
+    command: redis-server
 
 networks:
   network1:
@@ -386,6 +337,6 @@ networks:
     external: true
 
 volumes:
-  omnidialer-postgresql:
+  postgres:
+  redis:
   redis_redisinsight:
-  redis_omnidialer:

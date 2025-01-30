@@ -48,13 +48,13 @@ POSTGRES_OML_PORT = os.getenv('POSTGRES_OML_PORT', '5432')
 
 POSTGRES_OML_PASSWORD = os.getenv('POSTGRES_OML_PASSWORD')
 
-POSTGRES_OML_USER = 'omnileads'
+POSTGRES_OML_USER = os.getenv('POSTGRES_OML_USER', 'omnileads')
 
-POSTGRES_OML_DB = 'omnileads'
+POSTGRES_OML_DB = os.getenv('POSTGRES_OML_DB', 'omnileads')
 
-POSTGRES_DIALER_SERVER = os.getenv('POSTGRES_DIALER_SERVER', 'dialer-postgres')
+POSTGRES_DIALER_SERVER = os.getenv('POSTGRES_DIALER_SERVER', 'postgresql')
 
-POSTGRES_DIALER_PORT = os.getenv('POSTGRES_DIALER_PORT', '5433')
+POSTGRES_DIALER_PORT = os.getenv('POSTGRES_DIALER_PORT', '5432')
 
 POSTGRES_DIALER_USER = os.getenv('POSTGRES_DIALER_USER', 'omnidialer')
 
@@ -62,7 +62,7 @@ POSTGRES_DIALER_DB = os.getenv('POSTGRES_DIALER_DB', 'omnidialer')
 
 POSTGRES_DIALER_PASSWORD = os.getenv('POSTGRES_DIALER_PASSWORD')
 
-DIALER_ACD_HOST = os.getenv('DIALER_ACD_HOST', 'omlacd')
+DIALER_ACD_HOST = os.getenv('DIALER_ACD_HOST', 'asterisk')
 
 WEEK_DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
@@ -142,7 +142,7 @@ class AverageWorker(DialerWorker):
                                    f'@{POSTGRES_OML_SERVER}:{POSTGRES_OML_PORT}/{POSTGRES_OML_DB}')
     POSTGRES_DIALER_CONNECTION_STR = (f'postgresql://{POSTGRES_DIALER_USER}:'
                                       f'{POSTGRES_DIALER_PASSWORD}@{POSTGRES_DIALER_SERVER}:'
-                                      f'{POSTGRES_DIALER_PORT}/{POSTGRES_DIALER_DB}')
+                                      f'{POSTGRES_DIALER_PORT}/{POSTGRES_DIALER_DB}?sslmode=disable')
     REDIS_OML_CONNECTION = None
     REDIS_DIALER_CONNECTION = None
     GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)

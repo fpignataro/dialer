@@ -14,23 +14,27 @@ if [[ -n "${ASTERISK_USER}" && -n "${ASTERISK_PASS}" ]]; then
     sed -i "s/aripassword/${ASTERISK_PASS}/g" /etc/asterisk/ari.conf
 fi
 
-# Configuración de HTTP
-if [[ -n "${ASTERISK_DIALER_HOSTNAME}" ]]; then
-    sed -i "s/0.0.0.0/${ASTERISK_DIALER_HOSTNAME}/g" /etc/asterisk/http.conf
+# Configuración de OMLeads ACD PJSIP peer
+if [[ -n "${OMLACD_SIP_SERVER}" ]]; then
+    sed -i "s/acd/${OMLACD_SIP_SERVER}/g" /etc/asterisk/pjsip_wizard_omlacd.conf
 fi
 
-# Configuración de OMLeads ACD PJSIP peer
-if [[ -n "${OMLACD_SIP_ADDR}" ]]; then
-    sed -i "s/acd:5260/${OMLACD_SIP_ADDR}/g" /etc/asterisk/pjsip_wizard_omlacd.conf
-fi
 
 # Configuración de NAT & SIP
-if [[ -n "${SIP_NAT_ADDR}" ]]; then
-    sed -i "s#;external_media_address=localhost#external_media_address=${SIP_NAT_ADDR}#g" /etc/asterisk/pjsip.conf
-    sed -i "s#;external_signaling_address=localhost#external_signaling_address=${SIP_NAT_ADDR}#g" /etc/asterisk/pjsip.conf    
-fi
+if [[ -n "${SIP_NAT_MODE}" && "${SIP_NAT_MODE}" == "public_ip" ]]; then
+    sed -i "s#;external_media_address=localhost#external_media_address=${PUBLIC_IP_DOCKER_ENGINE}#g" /etc/asterisk/pjsip.conf
+    sed -i "s#;external_signaling_address=localhost#external_signaling_address=${PUBLIC_IP_DOCKER_ENGINE}#g" /etc/asterisk/pjsip.conf    
+elif  [[ "${SIP_NAT_MODE}" == "lan_ip" ]]; then
+    sed -i "s#;external_media_address=localhost#external_media_address=${PRIVATE_IP_DOCKER_ENGINE}#g" /etc/asterisk/pjsip.conf
+    sed -i "s#;external_signaling_address=localhost#external_signaling_address=${PRIVATE_IP_DOCKER_ENGINE}#g" /etc/asterisk/pjsip.conf    
+else
+    echo "NAT mode selected was not found !!!"
+    echo "Will be set to default mode: private_ip"
+    sed -i "s#;external_media_address=localhost#external_media_address=${PRIVATE_IP_DOCKER_ENGINE}#g" /etc/asterisk/pjsip.conf
+    sed -i "s#;external_signaling_address=localhost#external_signaling_address=${PRIVATE_IP_DOCKER_ENGINE}#g" /etc/asterisk/pjsip.conf    
+fi  
 
-# Configuración opcional para SIP Gateway PSTN
+# Configuración opcional para SIP Gateway PSTN 
 if [[ -n "${PSTNGW_REGISTER}" && "${PSTNGW_REGISTER}" == "yes" ]]; then
     sed -i "s/sends_registrations=no/sends_registrations=yes/g" /etc/asterisk/pjsip_wizard_pstngw.conf
 fi
@@ -47,8 +51,9 @@ fi
 if [[ -n "${PSTNGW_HOSTNAME}" ]]; then
     sed -i "s/tel_gateway:5260/${PSTNGW_HOSTNAME}/g" /etc/asterisk/pjsip_wizard_pstngw.conf
 else
-    sed -i "s/tel_gateway:5260/${OMLACD_SIP_ADDR}/g" /etc/asterisk/pjsip_wizard_pstngw.conf
+    sed -i "s/tel_gateway/${OMLACD_SIP_SERVER}/g" /etc/asterisk/pjsip_wizard_pstngw.conf
 fi
+
 
 # Iniciar el servidor Asterisk
 echo "**[omlacd] Initializing Asterisk"
