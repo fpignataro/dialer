@@ -481,7 +481,7 @@ class AverageWorker(DialerWorker):
             if cls.all_contacts_were_attempted(id_campaign) and \
                cls.no_active_incidence_rules(id_campaign) and cls.no_active_agendas():
                 logger.debug(f'Campaign {id_campaign}: no more contacts pending for call')
-                cls.set_campaign_status(id_campaign, PAUSED, sync_omnileads=True)
+                cls.set_campaign_status(id_campaign, FINALIZED, sync_omnileads=True)
                 cls.connect_redis_oml()
                 cls.REDIS_OML_CONNECTION.publish(
                     'OML:CHANNEL:DIALER',
@@ -1114,7 +1114,8 @@ class AverageWorker(DialerWorker):
             if incidence_rule_applied:
                 status = cls.get_campaign_status(id_campaign, cursor_dialer)
                 if status == PAUSED:
-                    cls.set_campaign_status(id_campaign, ACTIVE, cursor=cursor_dialer, sync_omnileads=True)
+                    cls.set_campaign_status(id_campaign, ACTIVE, cursor=cursor_dialer,
+                                            sync_omnileads=True)
                     message = json.dumps({'id_campaign': id_campaign})
                     cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
             return b'Disposition for incidence rule was added!'

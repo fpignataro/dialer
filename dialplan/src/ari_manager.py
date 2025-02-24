@@ -15,7 +15,8 @@ class ARI:
     def post(self, route, payload=None, headers=None):
         uri = f'http://{self.host}:{self.port}/ari/{route}'
         logging.info(f"URI: {uri}, Payload: {payload}, Headers: {headers}")
-        response = requests.post(uri, auth=(self.user, self.password), json=payload, headers=headers)
+        response = requests.post(uri, auth=(self.user, self.password),
+                                 json=payload, headers=headers)
 
         if response.status_code == 204 or not response.text:
             logging.info(f"No content in response. Status Code: {response.status_code}")
@@ -26,7 +27,8 @@ class ARI:
                 logging.info(f"Response: {response_json}")
                 return response_json
             except ValueError:
-                logging.error(f"Error parsing JSON: {response.text}, Status Code: {response.status_code}")
+                logging.error(f"Error parsing JSON: {response.text}, "
+                              f"Status Code: {response.status_code}")
                 return response
 
     def get(self, route):
@@ -35,7 +37,8 @@ class ARI:
         try:
             return response.json()
         except ValueError:
-            logging.error(f"GET Error parsing JSON: {response.text}, Status Code: {response.status_code}")
+            logging.error(f"GET Error parsing JSON: {response.text}, Status Code:"
+                          f" {response.status_code}")
             return response
 
     def put(self, route, payload=None, headers=None):
@@ -52,9 +55,10 @@ class ARI:
                 logging.info(f"Response: {response_json}")
                 return response_json
             except ValueError:
-                logging.error(f"Error parsing JSON: {response.text}, Status Code: {response.status_code}")
+                logging.error(f"Error parsing JSON: {response.text}, "
+                              f"Status Code: {response.status_code}")
                 return response
-            
+
     def delete(self, route):
         uri = f'http://{self.host}:{self.port}/ari/{route}'
         return requests.delete(uri, auth=(self.user, self.password))
@@ -107,7 +111,8 @@ class ARI:
         payload = {'type': bridge_type}
         return self.post(route, payload)
 
-    def originate_channel(self, endpoint, app, callerId=None, appArgs=None, variables=None, timeout=30, channelId=None):
+    def originate_channel(self, endpoint, app, callerId=None, appArgs=None, variables=None,
+                          timeout=30, channelId=None):
         """
         Realiza una solicitud para crear un nuevo canal en Asterisk.
         """
@@ -137,7 +142,8 @@ class ARI:
         # Realizar la solicitud POST con el payload
         uri = f'http://{self.host}:{self.port}/ari/{route}'
         try:
-            response = requests.post(uri, auth=(self.user, self.password), json=payload, headers={'Content-Type': 'application/json'})
+            response = requests.post(uri, auth=(self.user, self.password),
+                                     json=payload, headers={'Content-Type': 'application/json'})
             # Verificar si la respuesta es exitosa
             if response.status_code == 200:
                 response_json = response.json()
@@ -145,13 +151,14 @@ class ARI:
                 return response_json
             else:
                 # La respuesta no es exitosa, loguea el error y devuelve None
-                logging.error(f"Error al realizar la solicitud ARI: {response.status_code} - {response.text}")
+                logging.error(f"Error al realizar la solicitud ARI: {response.status_code}"
+                              f" - {response.text}")
                 return None
 
         except requests.exceptions.RequestException as e:
             logging.error(f"Error al realizar la solicitud ARI: {str(e)}")
             return None  # Retorna None si ocurre un error
-                                                                                              
+
     def hangup_channel(self, channel_id):
         route = f'channels/{channel_id}'
         try:
@@ -184,7 +191,8 @@ class ARI:
                     logging.error(f"Error parsing response JSON for bridge {bridge_id}")
                     return []
             else:
-                logging.error(f"Failed to retrieve channels for bridge {bridge_id}: {response.status_code}")
+                logging.error(f"Failed to retrieve channels for bridge {bridge_id}: "
+                              f"{response.status_code}")
                 return []
 
     def destroy_bridge(self, bridge_id):
@@ -205,13 +213,15 @@ class ARI:
             if isinstance(response, dict):
                 return response.get('value')
             else:
-                logging.error(f"Error al obtener la variable del canal: respuesta inesperada")
+                logging.error("Error al obtener la variable del canal: respuesta inesperada")
                 return None
         except Exception as e:
             logging.error(f"Error al obtener la variable del canal: {e}")
             return None
 
-    def start_channel_recording(self, channel_id, name, format, maxDurationSeconds=0, maxSilenceSeconds=0, ifExists='fail', beep=False, terminateOn='none'):
+    def start_channel_recording(self, channel_id, name, format, maxDurationSeconds=0,
+                                maxSilenceSeconds=0,
+                                ifExists='fail', beep=False, terminateOn='none'):
         route = f'channels/{channel_id}/record'
         payload = {
             'name': name,
@@ -224,7 +234,8 @@ class ARI:
         }
         return self.post(route, payload=payload)
 
-    def start_recording(self, bridge_id, name, format, maxDurationSeconds=0, maxSilenceSeconds=0, ifExists='fail', beep=False, terminateOn='none'):
+    def start_recording(self, bridge_id, name, format, maxDurationSeconds=0, maxSilenceSeconds=0,
+                        ifExists='fail', beep=False, terminateOn='none'):
         route = f'bridges/{bridge_id}/record'
         payload = {
             'name': name,
@@ -246,7 +257,8 @@ class ARI:
             if http_err.response.status_code == 404:
                 logging.error("Bridge not found.")
             elif http_err.response.status_code == 409:
-                logging.error("Bridge is not in a Stasis application or a recording with the same name already exists.")
+                logging.error("Bridge is not in a Stasis application or a recording with the same "
+                              "name already exists.")
             elif http_err.response.status_code == 422:
                 logging.error("The format specified is unknown on this system.")
             return None
@@ -254,7 +266,8 @@ class ARI:
             logging.error(f'An error occurred in start_recording: {e}')
             return None
 
-    def external_media(self, external_host, external_port, app, format='slin16', direction='both', variables=None):
+    def external_media(self, external_host, external_port, app, format='slin16', direction='both',
+                       variables=None):
         route = 'channels/externalMedia'
         payload = {
             "external_host": f"{external_host}:{external_port}",
@@ -281,7 +294,8 @@ class ARI:
             logging.info(f"Channel {channel_id} continued successfully in the dialplan.")
             return True
         else:
-            logging.error(f"Failed to continue channel {channel_id}: {response.status_code} - {response.text}")
+            logging.error(f"Failed to continue channel {channel_id}: {response.status_code} - "
+                          f"{response.text}")
             return False
 
     def execute_asterisk_command(self, command):
@@ -309,5 +323,6 @@ class ARI:
             logging.error(f"Module {module_name} could not be reloaded.")
             return False
         else:
-            logging.error(f"Failed to reload module {module_name}: {response.status_code} - {response.text}")
+            logging.error(f"Failed to reload module {module_name}: {response.status_code} - "
+                          f"{response.text}")
             return False

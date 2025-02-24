@@ -1,8 +1,5 @@
-import requests
-import json
 import sys
 import os
-import uuid
 import logging
 from ari_manager import ARI
 
@@ -18,7 +15,8 @@ PSTN_GATEWAY = os.getenv('PSTN_GW', 'pstn_gateway')
 
 # Verifica que se hayan proporcionado los argumentos necesarios
 if len(sys.argv) != 7:
-    logging.error("Uso: python call_sender.py <NUMERO> <ID_CAMP> <ID_CUSTOMER> <QUEUE_TIMEOUT> <DIAL_TIMEOUT> <CALL_TYPE>")
+    logging.error("Uso: python call_sender.py <NUMERO> <ID_CAMP> <ID_CUSTOMER> <QUEUE_TIMEOUT> "
+                  "<DIAL_TIMEOUT> <CALL_TYPE>")
     sys.exit(1)
 
 # Obtiene los datos de los argumentos de la línea de comandos
@@ -86,7 +84,8 @@ call_data = {
     'callerId': caller_id,
     'timeout': int(dial_timeout),
     'app': ASTERISK_APP,
-    'appArgs': f'id_camp: {id_camp}, id_customer: {id_customer}, tel_customer: {tel_number}, channel_type: {channel_type}, call_type: {call_type}',
+    'appArgs': (f'id_camp: {id_camp}, id_customer: {id_customer}, tel_customer: {tel_number}, '
+                f'channel_type: {channel_type}, call_type: {call_type}'),
     'variables': variables,
 }
 

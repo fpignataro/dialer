@@ -2,6 +2,15 @@ stages:
   - test
   - build
 
+test:
+  stage: test
+  image: python:3.9-alpine
+  before_script:
+    - python -m pip install --upgrade pip
+    - pip install flake8
+  script:
+    - flake8
+
 # Template genérico para builds
 .build_template:
   image: docker:20.10.15-alpine3.15

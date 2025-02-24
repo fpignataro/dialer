@@ -43,7 +43,7 @@ class CallManager:
         self.channel_dialstatus = {}
         # Configuración de RabbitMQ
         self.RABBITMQ_OML_SERVER = os.getenv("RABBITMQ_OML_SERVER", "localhost")
-        self.rabbitmq_queue = 'call_log_processor'  
+        self.rabbitmq_queue = 'call_log_processor'
         self.pstngw_hostname = os.getenv("PSTNGW_HOSTNAME")
 
         # Establecemos conexión y canal persistentes con RabbitMQ
@@ -74,10 +74,11 @@ class CallManager:
 
     def on_message(self, ws, message):
         if "RTP" not in message and "ChannelVarset" not in message:
-            logging.info("\n" + "="*50 + "\nJSON event from WS:\n%s\n%s", json.dumps(json.loads(message), indent=2), "="*50)
+            logging.info("\n" + "=" * 50 + "\nJSON event from WS:\n%s\n%s",
+                         json.dumps(json.loads(message), indent=2), "=" * 50)
 
         event_to_dict = json.loads(message)
-        
+
         if event_to_dict.get("type") == "Dial":
             peer = event_to_dict.get("peer")
             if peer:
@@ -180,7 +181,7 @@ class CallManager:
                         logging.info(f"Incremented calls counter in Redis key '{redis_key}'")
                     else:
                         logging.warning("id_camp not defined. Calls counter not incremented.")
-                    
+
                     if peer_id:
                         self.pstn_channel_ids.add(peer_id)
                         logging.info(f"Added PSTN channel id {peer_id} to tracking set")
@@ -194,7 +195,8 @@ class CallManager:
                         }
                         self.publish_message_if_needed(call_data, "DIAL")
                     else:
-                        logging.warning("PSTNGW_HOSTNAME not set or no data extracted from caller name. Message not published.")
+                        logging.warning("PSTNGW_HOSTNAME not set or no data extracted from caller "
+                                        "name. Message not published.")
 
                 elif dialstatus == 'ANSWER':
                     if self.pstngw_hostname and id_camp and id_customer and tel_customer:
@@ -207,7 +209,8 @@ class CallManager:
                         # Publicar el evento ANSWER al RabbitMQ
                         self.publish_message_if_needed(call_data, "ANSWER")
                     else:
-                        logging.warning("PSTNGW_HOSTNAME not set or no data extracted from caller name for ANSWER event. Message not published.")
+                        logging.warning("PSTNGW_HOSTNAME not set or no data extracted from caller "
+                                        "name for ANSWER event. Message not published.")
                         self.publish_message_if_needed(call_data, dialstatus)
 
                 else:
@@ -223,7 +226,8 @@ class CallManager:
                         # Publicar el evento ANSWER al RabbitMQ
                         self.publish_message_if_needed(call_data, dialstatus)
                     else:
-                        logging.warning("PSTNGW_HOSTNAME not set or no data extracted from caller name for ANSWER event. Message not published.")
+                        logging.warning("PSTNGW_HOSTNAME not set or no data extracted from caller "
+                                        "name for ANSWER event. Message not published.")
                         self.publish_message_if_needed(call_data, dialstatus)
 
             elif re.match(r'^camp_\d+@omlacd$', dialstring):
@@ -233,9 +237,11 @@ class CallManager:
                     pstn_channel_id = self.agent_to_pstn.get(agent_channel_id)
                     if pstn_channel_id:
                         self.hangup_channel(pstn_channel_id)
-                        logging.info(f"Hung up PSTN channel {pstn_channel_id} due to agent no answer.")
+                        logging.info(
+                            f"Hung up PSTN channel {pstn_channel_id} due to agent no answer.")
                     else:
-                        logging.warning(f"No PSTN channel ID found for agent channel {agent_channel_id}")
+                        logging.warning(
+                            f"No PSTN channel ID found for agent channel {agent_channel_id}")
                 else:
                     logging.info("Dial status: %s", dialstatus)
             else:
@@ -259,7 +265,8 @@ class CallManager:
                     "id_camp=%s, id_customer=%s, tel_customer=%s,"
                     "channel_type: %s, pstn_id_channel=%s,"
                     "bridge_id=%s, channel_id=%s",
-                    channel_data.get('id_camp'), channel_data.get('id_customer'), channel_data.get('tel_customer'),
+                    channel_data.get('id_camp'), channel_data.get('id_customer'),
+                    channel_data.get('tel_customer'),
                     channel_data.get('channel_type'), channel_data.get('channel_id_pstn'),
                     channel_data.get('bridge_id'), channel_id
                 )
@@ -271,7 +278,8 @@ class CallManager:
                 elif channel_type == 'to_omlacd_dialqueue':
                     if channel_data.get('channel_id_pstn') and channel_id:
                         self.agent_to_pstn[channel_id] = channel_data.get('channel_id_pstn')
-                        logging.info(f"Mapped agent channel {channel_id} to PSTN channel {channel_data.get('channel_id_pstn')}")
+                        logging.info(f"Mapped agent channel {channel_id} to PSTN channel "
+                                     f"{channel_data.get('channel_id_pstn')}")
                     self.handle_to_omlacd_queue(channel_id)
                 else:
                     logging.error("Unknown channel type: %s", channel_type)
@@ -309,8 +317,7 @@ class CallManager:
         try:
             channel = event.get('channel', {})
             channel_id = channel.get('id')
-            
-            caller = channel.get('caller', {})            
+            caller = channel.get('caller', {})
             caller_name = caller.get('name', '')
 
             id_camp, id_customer, tel_customer = self.parse_caller_name(caller_name)
@@ -321,11 +328,12 @@ class CallManager:
                 if id_camp:
                     redis_key = f"OML:CALLS:{id_camp}:DIALER"
                     self.redis_client.decr(redis_key)
-                    logging.info(f"Decremented calls counter in Redis key '{redis_key}' for channel id {channel_id}")
+                    logging.info(f"Decremented calls counter in Redis key '{redis_key}' for channel"
+                                 f" id {channel_id}")
                 else:
                     logging.warning("id_camp not defined. Calls counter not decremented.")
 
-                self.pstn_channel_ids.remove(channel_id)                
+                self.pstn_channel_ids.remove(channel_id)
 
                 if self.pstngw_hostname and id_camp and id_customer and tel_customer and dialstatus:
                     if dialstatus != 'ANSWER':
@@ -338,12 +346,14 @@ class CallManager:
                         }
                         self.publish_message_if_needed(call_data, dialstatus)
                     else:
-                        logging.info(f"Dialstatus is ANSWER, not publishing to RabbitMQ for channel {channel_id}.")
+                        logging.info(f"Dialstatus is ANSWER, not publishing to RabbitMQ for "
+                                     f"channel {channel_id}.")
                 else:
-                    logging.warning(f"No call data extracted or PSTNGW_HOSTNAME not set or no dialstatus. Channel {channel_id}. Message not published.")
-            
+                    logging.warning(f"No call data extracted or PSTNGW_HOSTNAME not set or no "
+                                    f"dialstatus. Channel {channel_id}. Message not published.")
             else:
-                logging.info(f"ChannelDestroyed for channel id {channel_id}, not a tracked PSTN channel")
+                logging.info(f"ChannelDestroyed for channel id {channel_id}, not a tracked "
+                             f"PSTN channel")
 
             # Remover el dialstatus guardado para liberar memoria
             if channel_id in self.channel_dialstatus:
@@ -370,7 +380,8 @@ class CallManager:
                     "id_camp=%s, id_customer=%s, tel_customer=%s,"
                     "channel_type: %s, pstn_id_channel=%s,"
                     "id_bridge=%s, channel_id=%s",
-                    call_data.get('id_camp'), call_data.get('id_customer'), call_data.get('tel_customer'),
+                    call_data.get('id_camp'), call_data.get('id_customer'),
+                    call_data.get('tel_customer'),
                     call_data.get('channel_type'), call_data.get('channel_id_pstn'),
                     call_data.get('bridge_id'), channel_id)
 
@@ -410,7 +421,8 @@ class CallManager:
 
     def find_call_data_by_channel_id(self, channel_id):
         for cd in self.calls.values():
-            if channel_id in [cd.get('channel_id'), cd.get('channel_id_pstn'), cd.get('omlacd_channel_id')]:
+            if channel_id in [cd.get('channel_id'), cd.get('channel_id_pstn'),
+                              cd.get('omlacd_channel_id')]:
                 return cd
         return None
 
@@ -521,7 +533,7 @@ class CallManager:
         self.ari.add_channel_to_bridge(bridge_id, channel_id)
         logging.info("Added channel %s to bridge %s", channel_id, bridge_id)
         self.dial_to_omlacd_queue(channel_id)
-    
+
     def handle_to_omlacd_queue(self, channel_id):
         logging.info("****** External OMLACD QUEUE Channel Start *****")
 
@@ -551,7 +563,8 @@ class CallManager:
 
             originate_data = {
                 'endpoint': f'PJSIP/camp_{call_data["id_camp"]}@omlacd',
-                'callerId': f'{call_data["id_camp"]}_{call_data["id_customer"]}_{call_data["tel_customer"]}', 
+                'callerId': (f'{call_data["id_camp"]}_{call_data["id_customer"]}_'
+                             f'{call_data["tel_customer"]}'),
                 'timeout': 12,
                 'app': ASTERISK_APP,
                 'appArgs': (f'id_camp: {call_data["id_camp"]},'
@@ -581,7 +594,8 @@ class CallManager:
                 logging.info('Llamada generada exitosamente')
                 omlacd_channel_id = response['id']
                 self.agent_to_pstn[omlacd_channel_id] = call_data['channel_id']
-                logging.info(f"Mapped agent channel {omlacd_channel_id} to PSTN channel {call_data['channel_id']}")
+                logging.info(f"Mapped agent channel {omlacd_channel_id} to PSTN channel "
+                             f"{call_data['channel_id']}")
                 call_data['omlacd_channel_id'] = omlacd_channel_id
                 self.calls[channel_id] = call_data
             else:
@@ -628,7 +642,8 @@ class CallManager:
             if len(parts) == 3:
                 return parts[0], parts[1], parts[2]
             else:
-                logging.warning("Caller name doesn't follow expected pattern id_camp_id_customer_tel_customer: %s", caller_name)
+                logging.warning("Caller name doesn't follow expected pattern "
+                                "id_camp_id_customer_tel_customer: %s", caller_name)
                 return None, None, None
         else:
             logging.warning("Caller name is empty, cannot extract call data")
