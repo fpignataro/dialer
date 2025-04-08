@@ -424,11 +424,25 @@ class AverageWorker(DialerWorker):
         return bytes(response, encoding='UTF8')
 
     @classmethod
+    def clean_selected_contacts(cls, id_campaign):
+        # set contacts marked as SELECTED_CALL back to
+        # CREATED status, so they can be consumed by the process campaign
+        # this is due to these contacts were marked and not called
+        # or at least we didn't receive events from Asterisk to change their state
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                'UPDATE contact_in_campaign SET status = %s WHERE'
+                ' id_campaign = %s and status = %s;',
+                (STATUS_CREATED, id_campaign, STATUS_SELECTED_CALL))
+
+    @classmethod
     @exception_handler_decorator
     def start_campaign(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         sync_omnileads = data['sync_omnileads']
+        cls.clean_selected_contacts(id_campaign)
         logger.debug(f'Campaign {id_campaign}: starting the campaign')
         cls.set_campaign_status(id_campaign, ACTIVE, sync_omnileads=sync_omnileads)
         message = json.dumps({'id_campaign': id_campaign})
@@ -752,6 +766,7 @@ class AverageWorker(DialerWorker):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         sync_omnileads = data['sync_omnileads']
+        cls.clean_selected_contacts(id_campaign)
         logger.debug(f'Campaign {id_campaign} resuming the campaign')
         cls.set_campaign_status(id_campaign, ACTIVE, sync_omnileads=sync_omnileads)
         message = json.dumps({'id_campaign': id_campaign})
