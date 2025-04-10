@@ -429,12 +429,17 @@ class AverageWorker(DialerWorker):
         # CREATED status, so they can be consumed by the process campaign
         # this is due to these contacts were marked and not called
         # or at least we didn't receive events from Asterisk to change their state
+        logger.debug(f'Campaign {id_campaign}: cleaning broken selected contacts')
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
             cursor = conn.cursor()
             cursor.execute(
                 'UPDATE contact_in_campaign SET status = %s WHERE'
                 ' id_campaign = %s and status = %s;',
                 (STATUS_CREATED, id_campaign, STATUS_SELECTED_CALL))
+            row_count = cursor.rowcount
+            if row_count > 0:
+                logger.debug(
+                    f"Campaign {id_campaign}: cleaned broken selected contacts={row_count}")
 
     @classmethod
     @exception_handler_decorator
