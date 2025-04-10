@@ -16,7 +16,7 @@ TZ=America/Argentina/Cordoba
 # --- Asterisk dialer container params
 ASTERISK_USER=omnileadsami
 ASTERISK_PASS=amipassword
-ASTERISK_HOST=asterisk
+ASTERISK_HOST=dialer_asterisk
 ASTERISK_PORT=8888
 ASTERISK_APP_DIALER=call_manager_dialer
 ASTERISK_APP=call_manager
