@@ -4,7 +4,7 @@ from flask import Flask, request, render_template
 
 from dialer.multichannel import GearmanDialer
 
-from settings.default import WEBSOCKET_SERVER
+from settings.default import WEBSOCKET_SERVER, OML_OMNIDIALER_SECRET
 
 
 app = Flask(__name__)
@@ -123,6 +123,7 @@ def change_database(id_campaign):
 # HTMX endpoints & UI related code
 
 app.jinja_env.globals['WEBSOCKET_SERVER'] = WEBSOCKET_SERVER
+app.jinja_env.globals['OML_OMNIDIALER_SECRET'] = OML_OMNIDIALER_SECRET
 
 
 # TODO: move this endpoint it to the workers

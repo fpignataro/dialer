@@ -19,7 +19,7 @@
         <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}" >
     </head>
     <body class="p-4">
-        <div hx-ext="ws,ws-transform-data" ws-connect="{{WEBSOCKET_SERVER}}"></div>
+        <div hx-ext="ws,ws-transform-data" ws-connect="{{WEBSOCKET_SERVER}}/{{OML_OMNIDIALER_SECRET}}"></div>
         <div id="modals-here"
              class="modal modal-blur fade"
              style="display: none"

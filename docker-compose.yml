@@ -18,6 +18,7 @@ services:
     environment:
       - GEARMAN_JOB_SERVERS=${GEARMAN_JOB_SERVERS}
       - WEBSOCKET_SERVER=${WEBSOCKET_SERVER}
+      - OML_OMNIDIALER_SECRET=${OML_OMNIDIALER_SECRET}
 
   job_server:
     image: artefactual/gearmand:1.1.18-alpine
