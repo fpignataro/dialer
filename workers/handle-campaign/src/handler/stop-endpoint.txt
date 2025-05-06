@@ -1,0 +1,9 @@
+# to add a new endpoint
+
+# DOCS
+
+# DOCS-es
+
+# workers/handle-campaign/src/tests.py
+
+# restclient

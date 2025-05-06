@@ -51,7 +51,7 @@ RABBITMQ_OML_SERVER=oml-rabbit-mq
 
 # --- Gearman conn params
 GEARMAN_JOB_SERVERS=gearman_job_server_1:4730
-GEARMAN_JOBS=start-campaign|stop-campaign|resume-campaign|process-contact|schedule-contact|process-event|create-campaign|edit-campaign|pause-campaign|delete-campaign|send-reports|add-incidence-rule-disposition|create-incidence-rule|process-campaign|delete-incidence-rule|update-incidence-rule|schedule-agenda|change-database|render-template
+GEARMAN_JOBS=start-campaign|stop-campaign|resume-campaign|process-contact|schedule-contact|process-event|create-campaign|edit-campaign|pause-campaign|delete-campaign|send-reports|add-incidence-rule-disposition|create-incidence-rule|process-campaign|delete-incidence-rule|update-incidence-rule|schedule-agenda|change-database|render-template|stop-dialer
 
 DIALER_ACD_HOST=pstn_gateway
 

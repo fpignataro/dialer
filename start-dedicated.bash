@@ -41,3 +41,5 @@ bash add-worker-single-job.bash schedule-agenda schedule-agenda-1 $1
 bash add-worker-single-job.bash change-database change-database-1 $1
 
 bash add-worker-single-job.bash render-template render-template-1 $1
+
+bash add-worker-single-job.bash stop-dialer stop-dialer-1 $1

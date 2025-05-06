@@ -17,6 +17,7 @@ JOBS_TO_METHODS = {
     'process-contact': WORKER.process_contact,
     'process-event': WORKER.process_event,
     'process-campaign': WORKER.process_campaign,
+    'stop-dialer': WORKER.stop_dialer,
     # short processes
     'create-campaign': WORKER.create_campaign,
     'edit-campaign': WORKER.edit_campaign,

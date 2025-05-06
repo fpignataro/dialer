@@ -1378,3 +1378,15 @@ class AverageWorker(DialerWorker):
             cls.connect_redis_dialer()
             stats = cls.REDIS_DIALER_CONNECTION.hgetall(f'CAMP:{id_campaign}:COUNTER')
             return AdminRender.render_stats(id_campaign, stats)
+
+    @classmethod
+    @exception_handler_decorator
+    def stop_dialer(cls, worker, job):
+        # TODO: implement
+        # 1: pause all campaigns
+        # 2: set dialer status == 'stopped'
+        cls.REDIS_OML_CONNECTION.publish(
+            'OML:CHANNEL:DIALER',
+            json.dumps({'type': 'DIALER_STOPPED'})
+        )
+        return b'Dialer was stopped'

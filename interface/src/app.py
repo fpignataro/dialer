@@ -120,12 +120,17 @@ def change_database(id_campaign):
     return DIALER.change_database(id_campaign)
 
 
+@app.route('/stop-dialer/', methods=['POST'])
+def stop_dialer():
+    return DIALER.stop_dialer()
+
+
 # HTMX endpoints & UI related code
 
 app.jinja_env.globals['WEBSOCKET_SERVER'] = WEBSOCKET_SERVER
 
 
-# TODO: move this endpoint it to the workers
+# TODO: move this endpoint to the workers
 @app.route('/')
 def index():
     return render_template('index.html')

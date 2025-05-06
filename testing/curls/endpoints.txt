@@ -55,3 +55,6 @@ curl -d '{"id_contact": 7, "campaign_name": "clonan_33", "phone_number": "123132
 *** <id> of the campaign (in the URL)
 Example:
 curl -d '{}' -H "Content-Type: application/json" -X POST http://localhost:1440/change-database/4
+** Stop the dialer
+Example:
+curl -d '{}' -H "Content-Type: application/json" -X POST http://localhost:1440/stop-dialer/

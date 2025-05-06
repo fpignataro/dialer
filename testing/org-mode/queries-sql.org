@@ -10,7 +10,7 @@ select * from only campaign where id = 35;
 
 # for take a look at the statuses of the contacts
 #+begin_src sql :engine postgresql :dbhost localhost :dbuser omnidialer :dbpassword dialer456 :database omnidialer :dbport 5433
-select co.phone, cc.phone_numbers_list, cc.phone_number_index, cc.id_contact, cc.status, cc.history from only contact_in_campaign as cc inner join contact as co on cc.id_contact = co.id where cc.id_campaign = 37;
+select co.phone, cc.schedule_aborted, cc.phone_numbers_list, cc.phone_number_index, cc.id_contact, cc.status, cc.history from only contact_in_campaign as cc inner join contact as co on cc.id_contact = co.id where cc.id_campaign = 37;
 #+end_src
 
 #+RESULTS:
