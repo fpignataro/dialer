@@ -11,12 +11,12 @@
             </button>
         </div>
         <div class="col-auto">
-            <button class="btn btn-danger" hx-post="/htmx/stop-dialer">
+            <button class="btn btn-danger" hx-post="/htmx/stop-dialer" hx-swap="none">
                 <i class="bi bi-stop-fill"></i> Stop
             </button>
         </div>
         <div class="col-auto">
-            <button class="btn btn-warning disabled">
+            <button class="btn btn-warning" hx-post="/htmx/restart-dialer" hx-swap="none">
                 <i class="bi bi-arrow-repeat"></i> Restart
             </button>
         </div>
