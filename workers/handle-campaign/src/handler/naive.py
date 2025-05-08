@@ -1380,18 +1380,23 @@ class AverageWorker(DialerWorker):
             return AdminRender.render_stats(id_campaign, stats)
 
     @classmethod
+    def stop_dialer(cls):
+        pass
+
+    @classmethod
+    def start_dialer(cls):
+        pass
+
+    @classmethod
     def handle_dialer_action(cls, action):
         if action == 'start':
-            # just change the flag in the DB
-            pass
+            cls.start_dialer()
         elif action == 'stop':
-            # pause all active campaigns
-            # change the flag in the DB
-            pass
+            cls.stop_dialer()
         else:
-            # action == 'restart'
-            # do stop, wait some reasonable time and then start
-            pass
+            cls.stop_dialer()
+            # some delay
+            cls.start_dialer()
 
     @classmethod
     @exception_handler_decorator
