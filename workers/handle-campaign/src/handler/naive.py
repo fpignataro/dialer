@@ -1386,12 +1386,12 @@ class AverageWorker(DialerWorker):
         # TODO: pause all campaigns
         data = cls.decode_payload(job.data)
         action = data['action']
-        # cls.connect_redis_oml()
-        # cls.REDIS_OML_CONNECTION.publish(
-        #     'OML:CHANNEL:DIALER',
-        #     json.dumps({'type': 'DIALER_STATUS_CHANGE',
-        #                 'action': action})
-        # )
+        cls.connect_redis_oml()
+        cls.REDIS_OML_CONNECTION.publish(
+            'OML:CHANNEL:DIALER',
+            json.dumps({'type': 'DIALER_STATUS_CHANGE',
+                        'action': action})
+        )
         running = True
         if action == "stop":
             running = False
