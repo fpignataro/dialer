@@ -20,6 +20,12 @@ SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
+
+CREATE TABLE system_control (
+    is_active BOOLEAN NOT NULL DEFAULT true,
+);
+
+
 --
 -- Name: campaign; Type: TABLE; Schema: public; Owner: omnidialer
 --
@@ -122,7 +128,7 @@ ALTER SEQUENCE public.contact_id_seq OWNED BY public.contact.id;
 CREATE TABLE public.contact_in_campaign (
     id_campaign integer NOT NULL,
     id_contact integer NOT NULL,
-    id integer NOT NULL,
+    id integer NOT NULL,m
     status integer NOT NULL,
     status_pstn boolean NOT NULL DEFAULT false,
     final_status integer NOT NULL,
