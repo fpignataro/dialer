@@ -1379,7 +1379,6 @@ class AverageWorker(DialerWorker):
             stats = cls.REDIS_DIALER_CONNECTION.hgetall(f'CAMP:{id_campaign}:COUNTER')
             return AdminRender.render_stats(id_campaign, stats)
 
-
     @classmethod
     def handle_dialer_action(cls, action):
         if action == 'start':
