@@ -2,7 +2,10 @@
     <button
       {% if running %}
         class="btn btn-warning"
-        hx-post="/htmx/restart-dialer" hx-swap="none" hx-trigger="click once"
+        hx-post="/htmx/manage-dialer"
+        hx-vals='{"action": "restart"}'
+        hx-target="#status-dialer"
+        hx-trigger="click once"
       {% else %}
         class="btn btn-warning disabled"
       {% endif %}>

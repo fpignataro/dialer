@@ -1381,12 +1381,18 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     @exception_handler_decorator
-    def stop_dialer(cls, worker, job):
-        # TODO: implement
-        # 1: pause all campaigns
-        # 2: set dialer status == 'stopped'
-        cls.REDIS_OML_CONNECTION.publish(
-            'OML:CHANNEL:DIALER',
-            json.dumps({'type': 'DIALER_STOPPED'})
-        )
-        return b'Dialer was stopped'
+    def manage_dialer(cls, worker, job):
+        # TODO: change the status of the flag of the DB
+        # TODO: pause all campaigns
+        data = cls.decode_payload(job.data)
+        action = data['action']
+        # cls.connect_redis_oml()
+        # cls.REDIS_OML_CONNECTION.publish(
+        #     'OML:CHANNEL:DIALER',
+        #     json.dumps({'type': 'DIALER_STATUS_CHANGE',
+        #                 'action': action})
+        # )
+        running = True
+        if action == "stop":
+            running = False
+        return AdminRender.render_status_dialer(running)

@@ -120,11 +120,6 @@ def change_database(id_campaign):
     return DIALER.change_database(id_campaign)
 
 
-@app.route('/stop-dialer/', methods=['POST'])
-def stop_dialer():
-    return DIALER.stop_dialer()
-
-
 # HTMX endpoints & UI related code
 
 app.jinja_env.globals['WEBSOCKET_SERVER'] = WEBSOCKET_SERVER
@@ -148,6 +143,12 @@ def stats(id_campaign):
     return DIALER.render_template(
         {'type': 'stats', 'id_campaign': id_campaign}
     )
+
+
+@app.route('/htmx/manage-dialer/', methods=['POST'])
+def stop_dialer():
+    action = request.form.get('action')
+    return DIALER.manage_dialer(action)
 
 
 if __name__ == '__main__':

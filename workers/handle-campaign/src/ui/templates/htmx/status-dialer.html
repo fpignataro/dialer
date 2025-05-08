@@ -1,10 +1,16 @@
-<div class="container text-center">
-    <div class="mb-3">
-        <h5>Status: <span id="status-label" class="text-success">running</span></h5>
-    </div>
-    <div class="row justify-content-center">
-        {% include 'htmx/button-dialer-start.html' %}
-        {% include 'htmx/button-dialer-stop.html' %}
-        {% include 'htmx/button-dialer-restart.html' %}
+<div id="status-dialer">
+    <div class="container text-center">
+        <div class="mb-3">
+            {% if running %}
+                <h5>Status: <span id="status-label" class="text-success">running</span></h5>
+            {% else %}
+                <h5>Status: <span id="status-label" class="text-danger">stopped</span></h5>
+            {% endif %}
+        </div>
+        <div class="row justify-content-center">
+            {% include 'htmx/button-dialer-start.html' %}
+            {% include 'htmx/button-dialer-stop.html' %}
+            {% include 'htmx/button-dialer-restart.html' %}
+        </div>
     </div>
 </div>
