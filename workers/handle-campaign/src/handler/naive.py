@@ -1381,11 +1381,18 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def stop_dialer(cls):
-        pass
+        # TODO: pause running campaigns
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute(
+                'UPDATE system_control SET is_active = false, updated_at = now() WHERE id = true;')
 
     @classmethod
     def start_dialer(cls):
-        pass
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute(
+                'UPDATE system_control SET is_active = true, updated_at = now() WHERE id = true;')
 
     @classmethod
     def handle_dialer_action(cls, action):
@@ -1395,7 +1402,8 @@ class AverageWorker(DialerWorker):
             cls.stop_dialer()
         else:
             cls.stop_dialer()
-            # some delay
+            # TODO: change to some signal like PUBSUB to be more exact
+            sleep(7)
             cls.start_dialer()
 
     @classmethod
