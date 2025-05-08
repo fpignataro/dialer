@@ -20,11 +20,19 @@ SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
+--
+-- Name: system.control; Type: TABLE; Schema: public; Owner: omnidialer
+--
 
-CREATE TABLE system_control (
-    is_active BOOLEAN NOT NULL DEFAULT false,
+CREATE TABLE public.system_control (
+    id BOOLEAN PRIMARY KEY DEFAULT true CHECK (id),
+    is_active BOOLEAN NOT NULL,
+    updated_at TIMESTAMP DEFAULT now()
 );
 
+ALTER TABLE public.system_control OWNER TO omnidialer;
+
+INSERT INTO public.system_control (id, is_active) VALUES (true, true);
 
 --
 -- Name: campaign; Type: TABLE; Schema: public; Owner: omnidialer
