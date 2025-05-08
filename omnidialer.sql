@@ -136,7 +136,7 @@ ALTER SEQUENCE public.contact_id_seq OWNED BY public.contact.id;
 CREATE TABLE public.contact_in_campaign (
     id_campaign integer NOT NULL,
     id_contact integer NOT NULL,
-    id integer NOT NULL,m
+    id integer NOT NULL,
     status integer NOT NULL,
     status_pstn boolean NOT NULL DEFAULT false,
     final_status integer NOT NULL,
