@@ -152,5 +152,4 @@ def manage_dialer():
 
 
 if __name__ == '__main__':
-    DIALER.manage_dialer('start')
     app.run(host='0.0.0.0', port=1440, debug=True)
