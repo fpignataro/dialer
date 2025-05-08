@@ -361,6 +361,21 @@ services:
     networks:
       - network1
 
+  manage-dialer:
+    image: ${WORKER_IMG}
+    container_name: manage-dialer-1
+    env_file: .env
+    stop_signal: SIGINT
+    tty: true
+    stdin_open: true
+    depends_on:
+      - job_server
+      - postgresql
+    environment:
+      - GEARMAN_JOBS=manage-dialer
+    networks:
+      - network1
+
   dialer_asterisk:
     build:
       context: ./asterisk/
