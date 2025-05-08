@@ -22,7 +22,7 @@ SET default_table_access_method = heap;
 
 
 CREATE TABLE system_control (
-    is_active BOOLEAN NOT NULL DEFAULT true,
+    is_active BOOLEAN NOT NULL DEFAULT false,
 );
 
 
