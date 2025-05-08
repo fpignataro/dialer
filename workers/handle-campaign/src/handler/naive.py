@@ -1379,13 +1379,27 @@ class AverageWorker(DialerWorker):
             stats = cls.REDIS_DIALER_CONNECTION.hgetall(f'CAMP:{id_campaign}:COUNTER')
             return AdminRender.render_stats(id_campaign, stats)
 
+
+    @classmethod
+    def handle_dialer_action(cls, action):
+        if action == 'start':
+            # just change the flag in the DB
+            pass
+        elif action == 'stop':
+            # pause all active campaigns
+            # change the flag in the DB
+            pass
+        else:
+            # action == 'restart'
+            # do stop, wait some reasonable time and then start
+            pass
+
     @classmethod
     @exception_handler_decorator
     def manage_dialer(cls, worker, job):
-        # TODO: change the status of the flag of the DB
-        # TODO: pause all campaigns
         data = cls.decode_payload(job.data)
         action = data['action']
+        cls.handle_dialer_action(action)
         cls.connect_redis_oml()
         cls.REDIS_OML_CONNECTION.publish(
             'OML:CHANNEL:DIALER',
