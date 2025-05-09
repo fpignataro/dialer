@@ -1381,14 +1381,38 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def stop_dialer(cls):
-        # TODO: pause running campaigns
+        logger.debug('Stopping dialer')
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
-            cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute(
-                'UPDATE system_control SET is_active = false, updated_at = now() WHERE id = true;')
+            with conn_dialer.transaction():
+                cursor_dialer = conn_dialer.cursor()
+                with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
+                    cursor_oml = conn_oml.cursor()
+                    cursor_dialer.execute(
+                        'UPDATE system_control SET is_active = false, updated_at = now()'
+                        ' WHERE id = true;')
+                    logger.debug('Pausing all active campaigns')
+                    cursor_dialer.execute(
+                        'UPDATE campaign SET dialer_status = %s WHERE dialer_status = %s'
+                        ' RETURNING id;',
+                        (PAUSED, ACTIVE))
+                    cursor_oml.execute(
+                        'UPDATE ominicontacto_app_campana SET estado = %s WHERE estado = %s;',
+                        (PAUSED, ACTIVE))
+                    cls.connect_redis_oml()
+                    for camp_id_info in cursor_dialer.fetchall():
+                        id_campaign = camp_id_info[0]
+                        cls.REDIS_OML_CONNECTION.publish(
+                            "OML:CHANNEL:DIALER",
+                            json.dumps({'type': 'STATUSCHANGE',
+                                        'camp_id': id_campaign,
+                                        'status': PAUSED,
+                                        'admin': AdminRender.render_status_change(
+                                            id_campaign, PAUSED, CAMPAIGN_STATUS_TO_NAME[PAUSED],
+                                            AVAILABLE_NEXT_STATUSES[PAUSED])}))
 
     @classmethod
     def start_dialer(cls):
+        logger.debug('Starting dialer')
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
