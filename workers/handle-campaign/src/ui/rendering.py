@@ -22,8 +22,8 @@ ENVIRONMENT.globals['STATUS_TO_ACTION'] = STATUS_TO_ACTION
 
 class AdminRender():
     @classmethod
-    def render_init(cls, campaigns):
-        return INIT_TEMPLATE.render(campaigns=campaigns, running=True)
+    def render_init(cls, campaigns, running):
+        return INIT_TEMPLATE.render(campaigns=campaigns, running=running)
 
     @classmethod
     def render_status_change(cls, id_campaign, new_status, new_status_str, actions_campaign):

@@ -1372,7 +1372,9 @@ class AverageWorker(DialerWorker):
                 campaigns = [(id_camp, name, CAMPAIGN_STATUS_TO_NAME[status],
                               AVAILABLE_NEXT_STATUSES[status])
                              for (id_camp, name, status) in campaigns]
-                return AdminRender.render_init(campaigns)
+                cursor_dialer.execute('SELECT is_active FROM system_control;')
+                running = cursor_dialer.fetchone()[0]
+                return AdminRender.render_init(campaigns, running)
         if data['type'] == 'stats':
             id_campaign = data['id_campaign']
             cls.connect_redis_dialer()
