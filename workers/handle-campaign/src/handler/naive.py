@@ -1444,8 +1444,6 @@ class AverageWorker(DialerWorker):
             cls.stop_dialer()
         else:
             cls.stop_dialer()
-            # TODO: change to some signal like PUBSUB to be more exact
-            sleep(7)
             cls.start_dialer()
 
     @classmethod
@@ -1458,7 +1456,8 @@ class AverageWorker(DialerWorker):
         cls.REDIS_OML_CONNECTION.publish(
             'OML:CHANNEL:DIALER',
             json.dumps({'type': 'DIALER_STATUS_CHANGE',
-                        'action': action})
+                        'action': action,
+                        'camp_id': 'all'})
         )
         running = True
         if action == "stop":
