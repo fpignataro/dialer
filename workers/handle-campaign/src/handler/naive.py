@@ -1401,16 +1401,11 @@ class AverageWorker(DialerWorker):
                         'UPDATE ominicontacto_app_campana SET estado = %s WHERE estado = %s;',
                         (PAUSED, ACTIVE))
                     cls.connect_redis_oml()
-                    for camp_id_info in cursor_dialer.fetchall():
-                        id_campaign = camp_id_info[0]
-                        cls.REDIS_OML_CONNECTION.publish(
-                            "OML:CHANNEL:DIALER",
-                            json.dumps({'type': 'STATUSCHANGE',
-                                        'camp_id': id_campaign,
-                                        'status': PAUSED,
-                                        'admin': AdminRender.render_status_change(
-                                            id_campaign, PAUSED, CAMPAIGN_STATUS_TO_NAME[PAUSED],
-                                            AVAILABLE_NEXT_STATUSES[PAUSED])}))
+                    cls.REDIS_OML_CONNECTION.publish(
+                        "OML:CHANNEL:DIALER",
+                        json.dumps({'type': 'PAUSE_BULK',
+                                    'camp_id': 'all'})
+                    )
 
     @classmethod
     def start_dialer(cls):
