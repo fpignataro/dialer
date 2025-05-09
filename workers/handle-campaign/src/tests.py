@@ -218,6 +218,22 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute("SELECT dialer_status from campaign WHERE id = 4;")
             self.assertEqual(cursor_dialer.fetchone()[0], CREATED)
 
+    def test_campaign_is_forbidden_to_resume_if_dialer_stopped(self):
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute("UPDATE system_control SET is_active = false;")
+            cursor_dialer.execute("UPDATE campaign SET dialer_status = %s WHERE id = 4;", (PAUSED,))
+
+        job = GearmanJob(None, None, None, None,
+                         b'{"id_campaign": "4"}')
+        AverageWorker.resume_campaign(self.worker, job)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            # make sure the campaign is expired
+            # and marked as PAUSED after started
+            cursor_dialer.execute("SELECT dialer_status from campaign WHERE id = 4;")
+            self.assertEqual(cursor_dialer.fetchone()[0], PAUSED)
+
     def test_handle_campaign_general(self):
         AverageWorker.process_campaign = MagicMock()
         # check campaign entry creation and related tables too
