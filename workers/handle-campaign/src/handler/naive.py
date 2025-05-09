@@ -184,6 +184,13 @@ class AverageWorker(DialerWorker):
     )
 
     @classmethod
+    def system_is_active(cls):
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT is_active FROM system_control;')
+            return cursor_dialer.fetchone()[0]
+
+    @classmethod
     def process_campaign_inside(cls, id_campaign):
         while cls.campaign_is_active(id_campaign):
             logger.debug(f'\nCampaign {id_campaign} is active')
@@ -449,6 +456,13 @@ class AverageWorker(DialerWorker):
     @classmethod
     @exception_handler_decorator
     def start_campaign(cls, worker, job):
+        cls.connect_redis_oml()
+        if not cls.system_is_active():
+            cls.REDIS_OML_CONNECTION.publish(
+                'OML:CHANNEL:DIALER',
+                json.dumps({'type': 'SYSTEM_STOPPED',
+                            'camp_id': 'all'}))
+            return b'Forbidden operation'
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         sync_omnileads = data['sync_omnileads']
@@ -792,6 +806,13 @@ class AverageWorker(DialerWorker):
     @classmethod
     @exception_handler_decorator
     def resume_campaign(cls, worker, job):
+        cls.connect_redis_oml()
+        if not cls.system_is_active():
+            cls.REDIS_OML_CONNECTION.publish(
+                'OML:CHANNEL:DIALER',
+                json.dumps({'type': 'SYSTEM_STOPPED',
+                            'camp_id': 'all'}))
+            return b'Forbidden operation'
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
         sync_omnileads = data['sync_omnileads']
