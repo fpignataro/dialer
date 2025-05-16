@@ -252,6 +252,14 @@ class MyTestSuite(unittest.TestCase):
             # and marked as PAUSED after started
             cursor_dialer.execute("SELECT dialer_status from campaign WHERE id = 4;")
             self.assertEqual(cursor_dialer.fetchone()[0], PAUSED)
+    def test_campaign_is_deleted_correctly(self):
+        job = GearmanJob(None, None, None, None,
+                         b'{"id_campaign": "4"}')
+        AverageWorker.delete_campaign(self.worker, job)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT * from campaign;')
+            self.assertEqual(cursor_dialer.fetchall(), [])
 
     def test_job_entry_is_removed_if_ok(self):
         job = GearmanJob(None, None, b'add-incidence-rule-disposition',
