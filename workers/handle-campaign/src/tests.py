@@ -252,6 +252,7 @@ class MyTestSuite(unittest.TestCase):
             # and marked as PAUSED after started
             cursor_dialer.execute("SELECT dialer_status from campaign WHERE id = 4;")
             self.assertEqual(cursor_dialer.fetchone()[0], PAUSED)
+
     def test_campaign_is_deleted_correctly(self):
         job = GearmanJob(None, None, None, None,
                          b'{"id_campaign": "4"}')
