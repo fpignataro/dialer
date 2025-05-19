@@ -72,7 +72,6 @@ class MyTestSuite(unittest.TestCase):
                      True)]
         return []
 
-
     def mocked_psycopg_connect(self, connection_str):
         if connection_str == AverageWorker.POSTGRES_OML_CONNECTION_STR:
             return MagicMock()
@@ -96,7 +95,8 @@ class MyTestSuite(unittest.TestCase):
                                 self.incidence_rules_disposition_data)
         AverageWorker.get_campaign_data = MagicMock(
             return_value=campaign_mocked_data)
-        AverageWorker.get_contacts_campaign = MagicMock(side_effect=self.mocked_get_contacts_campaign)
+        AverageWorker.get_contacts_campaign = MagicMock(
+            side_effect=self.mocked_get_contacts_campaign)
         self.worker = GearmanWorker()
         job = GearmanJob(None, None, b'create-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"id_campaign": "4", "contact_strategy": [1, 3, 4]}')
@@ -302,7 +302,8 @@ class MyTestSuite(unittest.TestCase):
             self.assertEqual(len(cursor_dialer.fetchall()), 1)
     def test_contacts_without_phone_not_imported(self):
         self.fetchmany_counter = 0
-        AverageWorker.get_contacts_campaign = MagicMock(side_effect=self.mocked_get_contacts_campaign_no_phone)
+        AverageWorker.get_contacts_campaign = MagicMock(
+            side_effect=self.mocked_get_contacts_campaign_no_phone)
         job = GearmanJob(None, None, None, None,
                          b'{"id_campaign": "4"}')
         AverageWorker.change_database(self.worker, job)
