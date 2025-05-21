@@ -28,11 +28,12 @@ SET default_table_access_method = heap;
 
 CREATE TABLE public.jobs (
     id SERIAL PRIMARY KEY,
-    job_id INTEGER UNIQUE NOT NULL,
+    job_id TEXT UNIQUE NOT NULL,
     job_name TEXT NOT NULL,
     datime TIMESTAMPTZ NOT NULL DEFAULT now(),
     parametros JSONB,
-    status INTEGER NOT NULL
+    status INTEGER NOT NULL,
+    error TEXT
 );
 
 CREATE INDEX idx_jobs_job_name ON public.jobs(job_name);

@@ -161,13 +161,13 @@ def exception_handler_decorator(method):
         try:
             worker_class = args[0]
             job = args[2]
-            worker_class.save_job_status(job, JOB_STARTED)
+            id_job = worker_class.insert_job(job)
             result = method(*args, **kwargs)
-            worker_class.remove_job(job)
+            worker_class.remove_job(id_job)
             return result
         except Exception as e:
             logger.exception(f"An error occurred in {method.__name__}: {e}")
-            worker_class.save_job_status(job, JOB_FAILED, str(e))
+            worker_class.save_job_error(id_job, str(e))
             raise e
     return wrapper
 
@@ -193,12 +193,28 @@ class AverageWorker(DialerWorker):
     )
 
     @classmethod
-    def save_job_status(cls, job, status, exception=None):
-        pass
+    def insert_job(cls, job):
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            job_unique = job.unique.decode('utf8')
+            job_name = job.task.decode('utf8')
+            cursor.execute(
+                'INSERT INTO jobs (job_id, job_name, status) VALUES (%s, %s, %s) RETURNING id;',
+                (job_unique, job_name, JOB_STARTED))
+            return cursor.fetchone()[0]
 
     @classmethod
-    def remove_job(cls, job):
-        pass
+    def save_job_error(cls, id_job, exception):
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE jobs SET status = %s, error = %s WHERE id = %s;',
+                           (JOB_FAILED, exception, id_job))
+
+    @classmethod
+    def remove_job(cls, id_job):
+        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM jobs WHERE id = %s;', (id_job,))
 
     @classmethod
     def system_is_active(cls):
