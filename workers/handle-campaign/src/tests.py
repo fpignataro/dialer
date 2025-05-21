@@ -253,6 +253,33 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute("SELECT dialer_status from campaign WHERE id = 4;")
             self.assertEqual(cursor_dialer.fetchone()[0], PAUSED)
 
+    def test_job_entry_is_removed_if_ok(self):
+        job = GearmanJob(None, None, b'add-incidence-rule-disposition',
+                         bytes(str(uuid.uuid4()), encoding='utf8'),
+                         bytes(json.dumps({"id_campaign": "4", "disposition_option": 7,
+                                           "id_contact": 1}), encoding="UTF8"))
+        AverageWorker.add_incidence_rule_disposition(self.worker, job)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT * from jobs;')
+            self.assertEqual(cursor_dialer.fetchall(), [])
+
+    def test_job_entry_is_saved_if_error(self):
+        AverageWorker.clean_selected_contacts = MagicMock(side_effect=ValueError)
+        payload = {
+            'id_campaign': 4,
+            'sync_omnileads': False
+        }
+        payload_bytes = self.encode_payload(payload)
+        job = GearmanJob(None, None, b'start-campaign',
+                         bytes(str(uuid.uuid4()), encoding='utf8'), payload_bytes)
+        with self.assertRaises(ValueError):
+            AverageWorker.start_campaign(self.worker, job)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT * from jobs;')
+            self.assertEqual(len(cursor_dialer.fetchall()), 1)
+
     def test_handle_campaign_general(self):
         AverageWorker.process_campaign = MagicMock()
         # check campaign entry creation and related tables too
