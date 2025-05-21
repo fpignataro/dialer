@@ -4,6 +4,8 @@ import datetime
 
 import unittest
 
+import uuid
+
 from unittest.mock import MagicMock
 
 from decimal import Decimal
@@ -45,6 +47,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute('DELETE FROM incidence_rules_disposition;')
             cursor_dialer.execute('DELETE FROM contact_in_campaign;')
             cursor_dialer.execute('UPDATE system_control SET is_active = true;')
+            cursor_dialer.execute('DELETE FROM jobs;')
         AverageWorker.REDIS_DIALER_CONNECTION.close()
 
     def mocked_psycopg_fetchmany(self, cursor, size):
@@ -83,7 +86,7 @@ class MyTestSuite(unittest.TestCase):
             return_value=campaign_mocked_data)
         AverageWorker.get_contacts_campaign = MagicMock(side_effect=self.mocked_psycopg_fetchmany)
         self.worker = GearmanWorker()
-        job = GearmanJob(None, None, None, None,
+        job = GearmanJob(None, None, b'create-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"id_campaign": "4", "contact_strategy": [1, 3, 4]}')
         AverageWorker.create_campaign(self.worker, job)
 
@@ -97,7 +100,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s WHERE id_contact = %s'
                                   ' AND id_campaign = %s;',
                                   (STATUS_SELECTED_CALL, 1, 4))
-        job = GearmanJob(None, None, None, None,
+        job = GearmanJob(None, None, b'start-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"id_campaign": "4", "sync_omnileads": "false"}')
         AverageWorker.start_campaign(self.worker, job)
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
@@ -116,7 +119,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute('UPDATE contact_in_campaign SET status = %s WHERE id_contact = %s'
                                   ' AND id_campaign = %s;',
                                   (STATUS_SELECTED_CALL, 1, 4))
-        job = GearmanJob(None, None, None, None,
+        job = GearmanJob(None, None, b'resume-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"id_campaign": "4", "sync_omnileads": "false"}')
         AverageWorker.resume_campaign(self.worker, job)
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
@@ -149,7 +152,7 @@ class MyTestSuite(unittest.TestCase):
                                'creationtime': '2025-04-15T11:21:25.125-0300',
                                'language': 'en'},
                       'asterisk_id': '26:ce:a5:36:bc:0a', 'application': 'call_manager_dialer'}
-        job = GearmanJob(None, None, None, None,
+        job = GearmanJob(None, None, b'process-event', bytes(str(uuid.uuid4()), encoding='utf8'),
                          bytes(json.dumps(busy_event), encoding="UTF8"))
         AverageWorker.process_event(self.worker, job)
         # check that a job was submitted to 'schedule-contact'
@@ -161,7 +164,8 @@ class MyTestSuite(unittest.TestCase):
         # disposition attached to it  will schedule a call if the contact has still a valid number
         # of attempts
         AverageWorker.GM_CLIENT.submit_job = MagicMock()
-        job = GearmanJob(None, None, None, None,
+        job = GearmanJob(None, None, b'add-incidence-rule-disposition',
+                         bytes(str(uuid.uuid4()), encoding='utf8'),
                          bytes(json.dumps({"id_campaign": "4", "disposition_option": 7,
                                            "id_contact": 1}), encoding="UTF8"))
         AverageWorker.add_incidence_rule_disposition(self.worker, job)
@@ -174,7 +178,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute("UPDATE campaign SET dialer_status = %s WHERE id = 4;",
                                   (PAUSED,))
-        job = GearmanJob(None, None, None, None,
+        job = GearmanJob(None, None, b'process-contact', bytes(str(uuid.uuid4()), encoding='utf8'),
                          bytes(json.dumps({"contact": [1, 4, 6093017590], "id_campaign": 4}),
                                encoding="utf8"))
         AverageWorker.process_contact(self.worker, job)
@@ -193,7 +197,7 @@ class MyTestSuite(unittest.TestCase):
                                   " start_date = CURRENT_DATE - INTERVAL '2 day',"
                                   "end_date = CURRENT_DATE - INTERVAL '1 day'"
                                   " WHERE id = 4;")
-        job = GearmanJob(None, None, None, None,
+        job = GearmanJob(None, None, b'process-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"id_campaign": "4"}')
         AverageWorker.process_campaign(self.worker, job)
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
@@ -208,7 +212,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute("UPDATE system_control SET is_active = false;")
 
-        job = GearmanJob(None, None, None, None,
+        job = GearmanJob(None, None, b'start-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"id_campaign": "4"}')
         AverageWorker.start_campaign(self.worker, job)
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
@@ -224,7 +228,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute("UPDATE system_control SET is_active = false;")
             cursor_dialer.execute("UPDATE campaign SET dialer_status = %s WHERE id = 4;", (PAUSED,))
 
-        job = GearmanJob(None, None, None, None,
+        job = GearmanJob(None, None, b'resume-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"id_campaign": "4"}')
         AverageWorker.resume_campaign(self.worker, job)
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
@@ -239,7 +243,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute("UPDATE campaign SET dialer_status = %s WHERE id = 4;", (ACTIVE,))
 
-        job = GearmanJob(None, None, None, None,
+        job = GearmanJob(None, None, b'manage-dialer', bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"action": "stop"}')
         AverageWorker.manage_dialer(self.worker, job)
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
@@ -266,7 +270,7 @@ class MyTestSuite(unittest.TestCase):
             self.assertEqual(cursor_dialer.fetchone()[0], 2)
 
         # let's edit the campaign now
-        job = GearmanJob(None, None, None, None,
+        job = GearmanJob(None, None, b'edit-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"id_campaign": "4", "contact_strategy": [1, 4]}')
         campaign_id_data = self.campaign_id_data[:-4] + ([1, 4],) + self.campaign_id_data[-3:]
         campaign_mocked_data = (campaign_id_data, self.incidence_rules_data,
@@ -276,7 +280,7 @@ class MyTestSuite(unittest.TestCase):
         AverageWorker.edit_campaign(self.worker, job)
         # let's add an incidence rule
         job = GearmanJob(
-            None, None, None, None,
+            None, None, b'create-incidence-rule', bytes(str(uuid.uuid4()), encoding='utf8'),
             b'{"id_campaign": 4, "id_rule": 3, "status": 3, "status_custom":"no answer", '
             b'"max_attempt": 5, "retry_later": 5, "mode": 1, "type_rule": 1}')
         AverageWorker.create_incidence_rule(self.worker, job)
@@ -290,7 +294,7 @@ class MyTestSuite(unittest.TestCase):
             self.assertEqual(cursor_dialer.fetchone()[0], [1, 4])
             # now just edit the incidence rule
             job = GearmanJob(
-                None, None, None, None,
+                None, None, b'update-incidence-rule', bytes(str(uuid.uuid4()), encoding='utf8'),
                 b'{"id_campaign": 4, "id_rule": 3, "status": 3, "status_custom":"no answer", '
                 b'"max_attempt": 7, "retry_later": 5, "mode": 1, "type_rule": 1}')
             AverageWorker.update_incidence_rule(self.worker, job)
@@ -302,7 +306,7 @@ class MyTestSuite(unittest.TestCase):
             self.assertEqual(max_attempt_value, 7)
             # let's remove an incidence rule
             job = GearmanJob(
-                None, None, None, None,
+                None, None, b'delete-incidence-rule', bytes(str(uuid.uuid4()), encoding='utf8'),
                 b'{"id_campaign": 4, "id_rule": 3, "type_rule": 1}')
             AverageWorker.delete_incidence_rule(self.worker, job)
             cursor_dialer.execute('SELECT COUNT(*) FROM ONLY incidence_rules;')
@@ -315,26 +319,29 @@ class MyTestSuite(unittest.TestCase):
                 'sync_omnileads': False
             }
             payload_bytes = self.encode_payload(payload)
-            job = GearmanJob(None, None, None, None, payload_bytes)
+            job = GearmanJob(None, None, b'start-campaign',
+                             bytes(str(uuid.uuid4()), encoding='utf8'), payload_bytes)
             AverageWorker.start_campaign(self.worker, job)
             status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, ACTIVE)
 
             # testing pause-campaign
-            job = GearmanJob(None, None, None, None, payload_bytes)
+            job = GearmanJob(None, None, b'pause-campaign',
+                             bytes(str(uuid.uuid4()), encoding='utf8'), payload_bytes)
             AverageWorker.pause_campaign(self.worker, job)
             status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, PAUSED)
 
             # testing resume-campaign
-            job = GearmanJob(None, None, None, None, payload_bytes)
+            job = GearmanJob(None, None, b'resume-campaign',
+                             bytes(str(uuid.uuid4()), encoding='utf8'), payload_bytes)
             AverageWorker.resume_campaign(self.worker, job)
             status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, ACTIVE)
 
             # testing endpoint add disposition for incidence rule
             job = GearmanJob(
-                None, None, None, None,
+                None, None, b'add-incidence-rule', bytes(str(uuid.uuid4()), encoding='utf8'),
                 b'{"id_campaign": "4", "disposition_option": 8, "id_contact": 1}')
             for i in range(5):
                 AverageWorker.add_incidence_rule_disposition(self.worker, job)
@@ -345,7 +352,8 @@ class MyTestSuite(unittest.TestCase):
             AverageWorker.GM_CLIENT.submit_job.reset_mock()
 
             # testing stop-campaign
-            job = GearmanJob(None, None, None, None, payload_bytes)
+            job = GearmanJob(None, None, b'stop-campaign',
+                             bytes(str(uuid.uuid4()), encoding='utf8'), payload_bytes)
             AverageWorker.stop_campaign(self.worker, job)
             status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, FINALIZED)
