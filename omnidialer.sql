@@ -20,6 +20,28 @@ SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
+
+--
+-- Name: jobs; Type: TABLE; Schema: public; Owner: omnidialer
+--
+
+
+CREATE TABLE public.jobs (
+    id SERIAL PRIMARY KEY,
+    job_id INTEGER UNIQUE NOT NULL,
+    job_name TEXT NOT NULL,
+    datime TIMESTAMPTZ NOT NULL DEFAULT now(),
+    parametros JSONB,
+    status INTEGER NOT NULL
+);
+
+CREATE INDEX idx_jobs_job_name ON public.jobs(job_name);
+CREATE INDEX idx_jobs_datime ON public.jobs(datime);
+CREATE INDEX idx_jobs_status ON public.jobs(status);
+CREATE INDEX idx_jobs_name_status ON public.jobs(job_name, status);
+
+ALTER TABLE public.jobs OWNER TO omnidialer;
+
 --
 -- Name: system.control; Type: TABLE; Schema: public; Owner: omnidialer
 --

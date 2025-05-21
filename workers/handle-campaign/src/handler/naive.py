@@ -152,13 +152,22 @@ AVAILABLE_NEXT_STATUSES = {
     FINALIZED: [ACTIVE]
 }
 
+JOB_STARTED = 1
+JOB_FAILED = 2
+
 
 def exception_handler_decorator(method):
     def wrapper(*args, **kwargs):
         try:
-            return method(*args, **kwargs)
+            worker_class = args[0]
+            job = args[2]
+            worker_class.save_job_status(job, JOB_STARTED)
+            result = method(*args, **kwargs)
+            worker_class.remove_job(job)
+            return result
         except Exception as e:
             logger.exception(f"An error occurred in {method.__name__}: {e}")
+            worker_class.save_job_status(job, JOB_FAILED, str(e))
             raise e
     return wrapper
 
@@ -182,6 +191,14 @@ class AverageWorker(DialerWorker):
         host=ASTERISK_HOST,
         port=int(ASTERISK_PORT)
     )
+
+    @classmethod
+    def save_job_status(cls, job, status, exception=None):
+        pass
+
+    @classmethod
+    def remove_job(cls, job):
+        pass
 
     @classmethod
     def system_is_active(cls):
