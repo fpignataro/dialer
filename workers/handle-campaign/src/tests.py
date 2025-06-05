@@ -300,6 +300,7 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT * from jobs;')
             self.assertEqual(len(cursor_dialer.fetchall()), 1)
+
     def test_contacts_without_phone_not_imported(self):
         self.fetchmany_counter = 0
         AverageWorker.get_contacts_campaign = MagicMock(
