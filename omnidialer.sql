@@ -87,7 +87,8 @@ CREATE TABLE public.campaign (
     dialer_status integer NOT NULL,
     statistics JSONB,
     metadata JSONB,
-    customdialerdst boolean NOT NULL
+    customdialerdst boolean NOT NULL,
+    prefix character varying(128)
 );
 
 

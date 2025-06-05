@@ -426,6 +426,7 @@ class AverageWorker(DialerWorker):
         # assumes the dialer campaign exists in OML with all the required tables and fields created
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
+        prefix = data['prefix']
         logger.debug(f'Creating the campaign {id_campaign}')
         contact_strategy = data['contact_strategy']
         cls.connect_redis_dialer()
@@ -444,14 +445,15 @@ class AverageWorker(DialerWorker):
                         f'CAMP:{id_campaign}:CUSTOMDIALERDST', customdialerdst)
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the campaign data into omnidialer')
+                    campaign_id_data.append(prefix)
                     cursor_dialer.execute(
                         """INSERT INTO campaign (id, oml_status, name, start_date, end_date,
                         duplicates_control, priority, strategy, wait, initial_predictive_model,
                         initial_boost_factor, max_channels, sunday, monday, tuesday, wednesday,
                         thursday, friday, saturday, hour_start, hour_ends, contact_strategy,
-                        dialer_status, metadata, customdialerdst) VALUES
+                        dialer_status, metadata, customdialerdst, prefix) VALUES
                          (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s);""", campaign_id_data)
+                        %s, %s, %s, %s, %s, %s, %s, %s);""", campaign_id_data)
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the incidence_rules into omnidialer')
                     for incidence_rule in incidence_rules_data:
