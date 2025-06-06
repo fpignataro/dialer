@@ -18,7 +18,8 @@ DIALER = GearmanDialer
 @app.route('/create-campaign/<id_campaign>', methods=['POST'])
 def create_campaign(id_campaign):
     strategy = request.get_json().get('contact-strategy', [])
-    return DIALER.create_campaign(id_campaign, strategy)
+    prefix = request.get_json().get('prefix', [])
+    return DIALER.create_campaign(id_campaign, strategy, prefix)
 
 
 @app.route('/edit-campaign/<id_campaign>', methods=['POST'])

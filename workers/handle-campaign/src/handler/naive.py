@@ -426,9 +426,9 @@ class AverageWorker(DialerWorker):
         # assumes the dialer campaign exists in OML with all the required tables and fields created
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
-        prefix = data['prefix']
         logger.debug(f'Creating the campaign {id_campaign}')
         contact_strategy = data['contact_strategy']
+        prefix = data['prefix']
         cls.connect_redis_dialer()
         cls.connect_redis_oml()
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
@@ -445,7 +445,7 @@ class AverageWorker(DialerWorker):
                         f'CAMP:{id_campaign}:CUSTOMDIALERDST', customdialerdst)
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the campaign data into omnidialer')
-                    campaign_id_data.append(prefix)
+                    campaign_id_data = campaign_id_data + (prefix,)
                     cursor_dialer.execute(
                         """INSERT INTO campaign (id, oml_status, name, start_date, end_date,
                         duplicates_control, priority, strategy, wait, initial_predictive_model,

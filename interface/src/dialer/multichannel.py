@@ -27,10 +27,11 @@ class GearmanDialer(Dialer):
         return data.decode(encoding="utf8")
 
     @classmethod
-    def create_campaign(cls, id_campaign, contact_strategy):
+    def create_campaign(cls, id_campaign, contact_strategy, prefix):
         payload = {
             'id_campaign': id_campaign,
-            'contact_strategy': contact_strategy
+            'contact_strategy': contact_strategy,
+            'prefix': prefix
         }
         payload_bytes = cls.encode_payload(payload)
         job_request = cls.GM_CLIENT.submit_job(
