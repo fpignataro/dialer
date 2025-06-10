@@ -191,3 +191,11 @@ class GearmanDialer(Dialer):
     def render_template(cls, data):
         job_request = cls.GM_CLIENT.submit_job('render-template', cls.encode_payload(data))
         return cls.decode_payload(job_request.result)
+
+    @classmethod
+    def add_amd_event(cls, data):
+        payload = data
+        payload.update({'disposition_option', -2})
+        payload_bytes = cls.encode_payload(payload)
+        cls.GM_CLIENT.submit_job('add-incidence-rule-disposition', payload_bytes)
+        return json.dumps({'msg': 'Disposition added'})

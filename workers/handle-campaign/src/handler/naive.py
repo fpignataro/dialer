@@ -1251,12 +1251,10 @@ class AverageWorker(DialerWorker):
             return b'Success!'
 
     @classmethod
-    @job_handler_decorator
-    def add_incidence_rule_disposition(cls, worker, job):
-        data = cls.decode_payload(job.data)
+    def handle_disposition_option(cls, data):
         id_campaign = data['id_campaign']
-        disposition_option = data['disposition_option']
         id_contact = data['id_contact']
+        disposition_option = data['disposition_option']
         logger.debug(f'Adding disposition option {disposition_option} to contact {id_contact}'
                      f' in campaign {id_campaign}')
         cls.connect_redis_dialer()
@@ -1288,6 +1286,19 @@ class AverageWorker(DialerWorker):
                     message = json.dumps({'id_campaign': id_campaign})
                     cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
             return b'Disposition for incidence rule was added!'
+
+    @classmethod
+    def handle_amd_option(cls, data):
+        pass
+
+    @classmethod
+    @job_handler_decorator
+    def add_incidence_rule_disposition(cls, worker, job):
+        data = cls.decode_payload(job.data)
+        disposition_option = data['disposition_option']
+        if disposition_option == -2:
+            return cls.handle_amd_option(data)
+        return cls.handle_disposition_option(data)
 
     @classmethod
     @job_handler_decorator
