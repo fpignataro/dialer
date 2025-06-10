@@ -120,6 +120,12 @@ def change_database(id_campaign):
     return DIALER.change_database(id_campaign)
 
 
+@app.route('/add_amd_event', methods=['POST'])
+def add_amd_event():
+    data = request.get_json()
+    return DIALER.add_amd_event(data)
+
+
 # HTMX endpoints & UI related code
 
 app.jinja_env.globals['WEBSOCKET_SERVER'] = WEBSOCKET_SERVER

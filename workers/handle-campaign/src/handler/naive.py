@@ -1255,8 +1255,8 @@ class AverageWorker(DialerWorker):
     @classmethod
     def handle_disposition_option(cls, data):
         id_campaign = data['id_campaign']
-        disposition_option = data['disposition_option']
         id_contact = data['id_contact']
+        disposition_option = data['disposition_option']
         logger.debug(f'Adding disposition option {disposition_option} to contact {id_contact}'
                      f' in campaign {id_campaign}')
         cls.connect_redis_dialer()
