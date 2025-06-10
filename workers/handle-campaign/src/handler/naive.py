@@ -1289,7 +1289,13 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def handle_amd_option(cls, data):
-        pass
+        event = 'AMD'
+        id_campaign = data['id_campaign']
+        id_contact = data['id_contact']
+        phone_number = data['phone_number']
+        logger.debug(f'Campaign {id_campaign}: receiving {event} for contact {id_contact}')
+        cls.set_contact_status(id_campaign, id_contact, event)
+        cls.handle_incidence_rules(event, id_campaign, id_contact, phone_number)
 
     @classmethod
     @job_handler_decorator
