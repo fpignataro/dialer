@@ -195,7 +195,7 @@ class GearmanDialer(Dialer):
     @classmethod
     def add_amd_event(cls, data):
         payload = data
-        payload.update({'disposition_option', -2})
+        payload.update([('disposition_option', -2)])
         payload_bytes = cls.encode_payload(payload)
         cls.GM_CLIENT.submit_job('add-incidence-rule-disposition', payload_bytes)
         return json.dumps({'msg': 'Disposition added'})
