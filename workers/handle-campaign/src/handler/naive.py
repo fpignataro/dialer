@@ -1298,6 +1298,7 @@ class AverageWorker(DialerWorker):
         logger.debug(f'Campaign {id_campaign}: receiving {event} for contact {id_contact}')
         cls.set_contact_status(id_campaign, id_contact, event)
         cls.handle_incidence_rules(event, id_campaign, id_contact, phone_number)
+        return b'Disposition for AMD was handled'
 
     @classmethod
     @job_handler_decorator
