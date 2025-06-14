@@ -1291,7 +1291,7 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def handle_amd_option(cls, data):
-        event = 'AMD'
+        event = 'TERMINATED'
         id_campaign = data['id_campaign']
         id_contact = data['id_contact']
         phone_number = data['phone_number']
