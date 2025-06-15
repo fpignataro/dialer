@@ -280,6 +280,33 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute('SELECT * from jobs;')
             self.assertEqual(len(cursor_dialer.fetchall()), 1)
 
+    def test_amd_event_apply_incidence_rules(self):
+        AverageWorker.GM_CLIENT.submit_job = MagicMock()
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute(
+                """INSERT INTO incidence_rules (id, status, status_custom, max_attempt,
+                retry_later, in_mode, campaign_id) VALUES
+                (%s, %s, %s, %s, %s, %s, %s);""",
+                (3, 2, 'terminated', 1, 7, 1, 4))
+        # testing endpoint add disposition for incidence rule
+        job = GearmanJob(
+            None, None, b'add-incidence-rule-disposition',
+            bytes(str(uuid.uuid4()), encoding='utf8'),
+            b'{"id_campaign": "4", "disposition_option": -2, "id_contact": 1, '
+            b'"phone_number": "12343556"}')
+
+        # a call is scheduled for the first time
+        AverageWorker.add_incidence_rule_disposition(self.worker, job)
+        self.assertTrue(AverageWorker.GM_CLIENT.submit_job.called)
+        AverageWorker.GM_CLIENT.submit_job.reset_mock()
+
+        # a call is not scheduled for the second time because the incidence rule counter was
+        # consumed
+        AverageWorker.add_incidence_rule_disposition(self.worker, job)
+        self.assertFalse(AverageWorker.GM_CLIENT.submit_job.called)
+        AverageWorker.GM_CLIENT.submit_job.reset_mock()
+
     def test_handle_campaign_general(self):
         AverageWorker.process_campaign = MagicMock()
         # check campaign entry creation and related tables too
