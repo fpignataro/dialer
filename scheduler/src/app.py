@@ -43,7 +43,7 @@ def schedule_contact(phone_number, id_campaign, id_contact):
     logger.debug(f'Campaign {id_campaign}: calling scheduled agenda for contact {id_contact}')
     message = json.dumps({'contact': [id_contact, id_campaign, phone_number],
                           'id_campaign': id_campaign})
-    GM_CLIENT.submit_job('process-contact', message)
+    GM_CLIENT.submit_job('process-contact', message, background=True)
     return 'GD!!!'
 
 
