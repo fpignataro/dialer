@@ -260,6 +260,14 @@ class AverageWorker(DialerWorker):
                                 logger.debug(f"Campaign {id_campaign}: CAPS sleep")
                                 remaining = (timedelta(seconds=1) - current_delta).total_seconds()
                                 sleep(remaining)
+            else:
+                # schedule process-campaign for the next time the campaign is allowed to run
+                next_allowed_date = cls.get_next_allowed_date()
+                data = {'datetime_start': next_allowed_date}
+                host = SCHEDULER_API_HOST
+                uri = f'http://{host}/add-process-campaign/{id_campaign}'
+                requests.post(uri, json=data)
+                return None
 
     @classmethod
     def connect_redis_oml(cls):

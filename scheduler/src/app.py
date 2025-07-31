@@ -47,6 +47,13 @@ def schedule_contact(phone_number, id_campaign, id_contact):
     return 'GD!!!'
 
 
+def schedule_process_campaign(id_campaign):
+    logger.debug(f'Campaign {id_campaign} starting to run from the scheduler')
+    message = json.dumps({'id_campaign': id_campaign})
+    GM_CLIENT.submit_job('process-campaign', message, background=True)
+    return 'GD!!!'
+
+
 @app.route('/add-agenda/<id_campaign>', methods=['POST'])
 def add_agenda(id_campaign):
     datetime_agenda_str = request.get_json().get('datetime_agenda', '')
@@ -59,6 +66,19 @@ def add_agenda(id_campaign):
         schedule_contact, 'date', run_date=datetime_agenda,
         args=[phone_number, id_campaign, id_contact],
         name=schedule_type
+    )
+    return json.dumps({'msg': 'Contact was scheduled'})
+
+
+@app.route('/add-process-campaign/<id_campaign>', methods=['POST'])
+def add_process_campaign(id_campaign):
+    datetime_start_str = request.get_json().get('datetime_start', '')
+    datetime_start_campaign = datetime.strptime(datetime_start_str, '%d/%m/%y %H:%M:%S')
+    name = 'scheduled_process_campaign_{id_campaign}'
+    scheduler.add_job(
+        schedule_process_campaign, 'date', run_date=datetime_start_campaign,
+        args=[id_campaign],
+        name=name
     )
     return json.dumps({'msg': 'Contact was scheduled'})
 
