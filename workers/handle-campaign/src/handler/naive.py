@@ -234,7 +234,8 @@ class AverageWorker(DialerWorker):
     def process_campaign_inside(cls, id_campaign):
         while cls.campaign_is_active(id_campaign):
             logger.debug(f'\nCampaign {id_campaign} is active')
-            if cls.is_allowed_to_call(id_campaign):
+            allowed_to_call, extra_info = cls.is_allowed_to_call(id_campaign)
+            if allowed_to_call:
                 logger.debug(f'Campaign {id_campaign} is allowed to call')
                 contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
                 initial_time = datetime.datetime.now()
@@ -262,12 +263,28 @@ class AverageWorker(DialerWorker):
                                 sleep(remaining)
             else:
                 # schedule process-campaign for the next time the campaign is allowed to run
-                next_allowed_date = cls.get_next_allowed_date()
+                next_allowed_date = cls.get_next_allowed_date(id_campaign, extra_info)
                 data = {'datetime_start': next_allowed_date}
                 host = SCHEDULER_API_HOST
                 uri = f'http://{host}/add-process-campaign/{id_campaign}'
                 requests.post(uri, json=data)
                 return None
+
+    @classmethod
+    def get_next_allowed_date(cls, id_campaign, extra_info):
+        day_of_week_allowed, day_of_week, hour_match, hour, minute, campaign_info = extra_info
+        (hour_start, hour_end, monday, tuesday, wednesday, thursday, friday, saturday,
+         sunday) = campaign_info
+        if not day_of_week_allowed:
+            # search for an allowed
+            dow = campaign_info[(day_of_week + 1) % 6]
+            while not dow:
+                dow = (dow + 1) % 6
+            # construct the datetime
+            pass
+        else:
+            # TODO: pending
+            pass
 
     @classmethod
     def connect_redis_oml(cls):
@@ -283,13 +300,9 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def is_allowed_to_call(cls, id_campaign):
-        # check if opening hours are ok
-        # TODO: a possible optimization here could be pause the campaign and place a scheduled task
-        # to resume it later at the following allowed opening hour
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             return cls.opening_hours_match(cursor_dialer, id_campaign)
-        return False
 
     @classmethod
     def get_campaign_data(cls, id_campaign, cursor_oml, contact_strategy):
@@ -545,7 +558,18 @@ class AverageWorker(DialerWorker):
             logger.debug(f'Campaign {id_campaign}: day week not allowed to call')
         elif not hour_match:
             logger.debug(f'Campaign {id_campaign}: in the current time is not allowed to call')
-        return day_of_week_allowed and hour_match
+        result = day_of_week_allowed and hour_match
+        extra_info = None
+        if not result:
+            cursor.execute('SELECT EXTRACT(HOUR FROM NOW()) AS current_hour, '
+                           'EXTRACT(MINUTE FROM NOW()) AS current_minute;')
+            hour, minute = cursor.fetch_one()[0]
+            cursor.execute('SELECT hour_start,hour_end,'
+                           'monday,tuesday,wednesday,thursday,friday,saturday,sunday'
+                           ' FROM campaign where id = %s;' (id_campaign,))
+            campaign_info = cursor.fetch_one()[0]
+            extra_info = (day_of_week_allowed, day_of_week, hour_match, hour, minute, campaign_info)
+        return result, extra_info
 
     @classmethod
     def get_campaign_status(cls, id_campaign, dialer_cursor):
