@@ -281,9 +281,11 @@ class AverageWorker(DialerWorker):
             while not dow:
                 dow = (dow + 1) % 6
             # construct the datetime
-            pass
+            date = cls.get_next_day_of_week(dow)
+            return datetime.combine(date, datetime.time(hour_start, hour_end, 0))
         else:
-            # TODO: pending
+            # if current time < hour_start, just use the same day with hour_start
+            # else, get the next day of week allowed with hour start
             pass
 
     @classmethod
