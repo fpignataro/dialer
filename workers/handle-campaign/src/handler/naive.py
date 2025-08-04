@@ -578,13 +578,15 @@ class AverageWorker(DialerWorker):
         if not result:
             cursor.execute('SELECT EXTRACT(HOUR FROM NOW()) AS current_hour, '
                            'EXTRACT(MINUTE FROM NOW()) AS current_minute;')
-            hour, minute = cursor.fetch_one()[0]
-            cursor.execute('SELECT hour_start,hour_end,'
+            hour, minute = cursor.fetchone()
+            hour = int(hour)
+            minute = int(minute)
+            cursor.execute('SELECT hour_start,hour_ends,'
                            'monday,tuesday,wednesday,thursday,friday,saturday,sunday'
                            ' FROM campaign where id = %s;', (id_campaign,))
-            campaign_info = cursor.fetch_one()[0]
+            campaign_info = cursor.fetchone()[0]
             cursor.execute('SELECT CURRENT_DATE;')
-            current_date = cursor.fetch_one()[0]
+            current_date = cursor.fetchone()[0]
             extra_info = (day_of_week_allowed, day_of_week, hour_match, current_date, hour,
                           minute, campaign_info)
         return result, extra_info
