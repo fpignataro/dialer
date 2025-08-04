@@ -271,10 +271,11 @@ class AverageWorker(DialerWorker):
                 return None
 
     @classmethod
-    def get_next_day_of_week_allowed(cls, day_of_week, current_date, hour_start):
+    def get_next_day_of_week_allowed(
+            cls, permission_days_campaign, day_of_week, current_date, hour_start):
         # get next day of the week allowed in the campaign
         # search for an allowed day
-        dow = campaign_info[(day_of_week + 1) % 6]
+        dow = permission_days_campaign[(day_of_week + 1) % 6]
         while not dow:
             dow = (dow + 1) % 6
         # construct the datetime
@@ -284,9 +285,11 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def get_next_allowed_date(cls, id_campaign, extra_info):
-        day_of_week_allowed, day_of_week, hour_match, current_date, hour, minute, campaign_info = extra_info
+        (day_of_week_allowed, day_of_week, hour_match, current_date, hour,
+         minute, campaign_info) = extra_info
         (hour_start, hour_end, monday, tuesday, wednesday, thursday, friday, saturday,
          sunday) = campaign_info
+        permission_days_campaign = campaign_info[:2]
         # if the day of the week is not allowed get the next day of week allowed with hour_start
         if not day_of_week_allowed:
             return cls.get_next_day_of_week_allowed(day_of_week, current_date, hour_start)
@@ -294,8 +297,8 @@ class AverageWorker(DialerWorker):
         # else, get the next day of week allowed with hour start
         current_time = datetime.time(hour, minute)
         if current_time < hour_start:
-            return datetime.combine(date, hour_start)
-        return cls.get_next_day_of_week_allowed(day_of_week, current_date, hour_start)
+            return datetime.combine(current_date, hour_start)
+        return cls.get_next_day_of_week_allowed(permission_days_campaign, day_of_week, current_date, hour_start)
 
     @classmethod
     def connect_redis_oml(cls):
@@ -581,7 +584,8 @@ class AverageWorker(DialerWorker):
             campaign_info = cursor.fetch_one()[0]
             cursor.execute('SELECT CURRENT_DATE;')
             current_date = cursor.fetch_one()[0]
-            extra_info = (day_of_week_allowed, day_of_week, hour_match, current_date, hour, minute, campaign_info)
+            extra_info = (day_of_week_allowed, day_of_week, hour_match, current_date, hour,
+                          minute, campaign_info)
         return result, extra_info
 
     @classmethod
