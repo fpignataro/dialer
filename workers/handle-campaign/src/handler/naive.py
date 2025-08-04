@@ -289,13 +289,13 @@ class AverageWorker(DialerWorker):
          sunday) = campaign_info
         # if the day of the week is not allowed get the next day of week allowed with hour_start
         if not day_of_week_allowed:
-            return cls.get_next_day_of_week_allowed(day_of_week, current_date, hour_start):
+            return cls.get_next_day_of_week_allowed(day_of_week, current_date, hour_start)
         # if current time < hour_start, just use the same day with hour_start
         # else, get the next day of week allowed with hour start
         current_time = datetime.time(hour, minute)
         if current_time < hour_start:
             return datetime.combine(date, hour_start)
-        return cls.get_next_day_of_week_allowed(day_of_week, current_date, hour_start):
+        return cls.get_next_day_of_week_allowed(day_of_week, current_date, hour_start)
 
     @classmethod
     def connect_redis_oml(cls):
@@ -577,7 +577,7 @@ class AverageWorker(DialerWorker):
             hour, minute = cursor.fetch_one()[0]
             cursor.execute('SELECT hour_start,hour_end,'
                            'monday,tuesday,wednesday,thursday,friday,saturday,sunday'
-                           ' FROM campaign where id = %s;' (id_campaign,))
+                           ' FROM campaign where id = %s;', (id_campaign,))
             campaign_info = cursor.fetch_one()[0]
             cursor.execute('SELECT CURRENT_DATE;')
             current_date = cursor.fetch_one()[0]
