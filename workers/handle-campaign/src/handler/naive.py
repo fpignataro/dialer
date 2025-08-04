@@ -298,7 +298,8 @@ class AverageWorker(DialerWorker):
         current_time = datetime.time(hour, minute)
         if current_time < hour_start:
             return datetime.combine(current_date, hour_start)
-        return cls.get_next_day_of_week_allowed(permission_days_campaign, day_of_week, current_date, hour_start)
+        return cls.get_next_day_of_week_allowed(
+            permission_days_campaign, day_of_week, current_date, hour_start)
 
     @classmethod
     def connect_redis_oml(cls):
