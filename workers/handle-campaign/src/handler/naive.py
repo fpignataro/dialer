@@ -275,8 +275,8 @@ class AverageWorker(DialerWorker):
             cls, permission_days_campaign, day_of_week, current_date, hour_start):
         # get next day of the week allowed in the campaign
         # search for an allowed day
-        dow = permission_days_campaign[(day_of_week + 1) % 7]
-        while not dow:
+        dow = (day_of_week + 1) % 7
+        while not permission_days_campaign[dow]:
             dow = (dow + 1) % 7
         # construct the datetime
         days_until_next_day_allowed = (dow - day_of_week) % 7
