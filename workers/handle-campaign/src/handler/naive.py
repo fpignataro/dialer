@@ -264,7 +264,7 @@ class AverageWorker(DialerWorker):
             else:
                 # schedule process-campaign for the next time the campaign is allowed to run
                 next_allowed_date = cls.get_next_allowed_date(id_campaign, extra_info)
-                data = {'datetime_start': next_allowed_date}
+                data = {'datetime_start': next_allowed_date.strftime('%d/%m/%y %H:%M:%S')}
                 host = SCHEDULER_API_HOST
                 uri = f'http://{host}/add-process-campaign/{id_campaign}'
                 requests.post(uri, json=data)
@@ -275,13 +275,13 @@ class AverageWorker(DialerWorker):
             cls, permission_days_campaign, day_of_week, current_date, hour_start):
         # get next day of the week allowed in the campaign
         # search for an allowed day
-        dow = permission_days_campaign[(day_of_week + 1) % 6]
+        dow = permission_days_campaign[(day_of_week + 1) % 7]
         while not dow:
-            dow = (dow + 1) % 6
+            dow = (dow + 1) % 7
         # construct the datetime
         days_until_next_day_allowed = (dow - day_of_week) % 7
         date = current_date + timedelta(days_until_next_day_allowed)
-        return datetime.combine(date, hour_start)
+        return datetime.datetime.combine(date, hour_start)
 
     @classmethod
     def get_next_allowed_date(cls, id_campaign, extra_info):
@@ -289,7 +289,7 @@ class AverageWorker(DialerWorker):
          minute, campaign_info) = extra_info
         (hour_start, hour_end, monday, tuesday, wednesday, thursday, friday, saturday,
          sunday) = campaign_info
-        permission_days_campaign = campaign_info[:2]
+        permission_days_campaign = campaign_info[2:]
         # if the day of the week is not allowed get the next day of week allowed with hour_start
         if not day_of_week_allowed:
             return cls.get_next_day_of_week_allowed(day_of_week, current_date, hour_start)
@@ -297,7 +297,7 @@ class AverageWorker(DialerWorker):
         # else, get the next day of week allowed with hour start
         current_time = datetime.time(hour, minute)
         if current_time < hour_start:
-            return datetime.combine(current_date, hour_start)
+            return datetime.datetime.combine(current_date, hour_start)
         return cls.get_next_day_of_week_allowed(
             permission_days_campaign, day_of_week, current_date, hour_start)
 
@@ -563,7 +563,8 @@ class AverageWorker(DialerWorker):
     @classmethod
     def opening_hours_match(cls, cursor, id_campaign):
         cursor.execute('SELECT EXTRACT(DOW FROM CURRENT_DATE) AS day_of_week;')
-        day_of_week = WEEK_DAYS[int(cursor.fetchone()[0])]
+        day_of_week_int = int(cursor.fetchone()[0])
+        day_of_week = WEEK_DAYS[day_of_week_int]
         cursor.execute(f'SELECT {day_of_week} FROM ONLY campaign WHERE id = %s;', (id_campaign,))
         day_of_week_allowed = cursor.fetchone()[0]
         cursor.execute('SELECT * FROM ONLY campaign WHERE id = %s AND CURRENT_TIME BETWEEN'
@@ -584,10 +585,10 @@ class AverageWorker(DialerWorker):
             cursor.execute('SELECT hour_start,hour_ends,'
                            'monday,tuesday,wednesday,thursday,friday,saturday,sunday'
                            ' FROM campaign where id = %s;', (id_campaign,))
-            campaign_info = cursor.fetchone()[0]
+            campaign_info = cursor.fetchone()
             cursor.execute('SELECT CURRENT_DATE;')
             current_date = cursor.fetchone()[0]
-            extra_info = (day_of_week_allowed, day_of_week, hour_match, current_date, hour,
+            extra_info = (day_of_week_allowed, day_of_week_int, hour_match, current_date, hour,
                           minute, campaign_info)
         return result, extra_info
 

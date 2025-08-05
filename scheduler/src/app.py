@@ -74,7 +74,7 @@ def add_agenda(id_campaign):
 def add_process_campaign(id_campaign):
     datetime_start_str = request.get_json().get('datetime_start', '')
     datetime_start_campaign = datetime.strptime(datetime_start_str, '%d/%m/%y %H:%M:%S')
-    name = 'scheduled_process_campaign_{id_campaign}'
+    name = f'scheduled_process_campaign_{id_campaign}'
     scheduler.add_job(
         schedule_process_campaign, 'date', run_date=datetime_start_campaign,
         args=[id_campaign],
