@@ -300,6 +300,7 @@ class AverageWorker(DialerWorker):
                 requests.post(uri, json=data)
                 cls.update_percentages_priority_campaigns(id_campaign, False)
                 return None
+        cls.update_percentages_priority_campaigns(id_campaign, False)
 
     @classmethod
     def get_next_day_of_week_allowed(
