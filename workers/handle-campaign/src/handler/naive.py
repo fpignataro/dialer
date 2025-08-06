@@ -246,13 +246,24 @@ class AverageWorker(DialerWorker):
             return cursor_dialer.fetchone()[0]
 
     @classmethod
+    def allowed_calls_prority_percentage(cls, id_campaign, contacts_attempts_number_prev):
+        pass
+
+    @classmethod
+    def update_percentages_priority_campaigns(cls, id_campaign, activate):
+        pass
+
+    @classmethod
     def process_campaign_inside(cls, id_campaign):
         while cls.campaign_is_active(id_campaign):
             logger.debug(f'\nCampaign {id_campaign} is active')
             allowed_to_call, extra_info = cls.is_allowed_to_call(id_campaign)
             if allowed_to_call:
+                cls.update_percentages_priority_campaigns(id_campaign, True)
                 logger.debug(f'Campaign {id_campaign} is allowed to call')
-                contacts_attempts_number = cls.allowed_parallel_contact_attempts(id_campaign)
+                contacts_attempts_number_prev = cls.allowed_parallel_contact_attempts(id_campaign)
+                contacts_attempts_number = cls.allowed_calls_prority_percentage(
+                    id_campaign, contacts_attempts_number_prev)
                 initial_time = datetime.datetime.now()
                 caps_calls_counter = 0
                 contacts = cls.take_contacts(contacts_attempts_number, id_campaign)
@@ -287,6 +298,7 @@ class AverageWorker(DialerWorker):
                 host = SCHEDULER_API_HOST
                 uri = f'http://{host}/add-process-campaign/{id_campaign}'
                 requests.post(uri, json=data)
+                cls.update_percentages_priority_campaigns(id_campaign, False)
                 return None
 
     @classmethod
