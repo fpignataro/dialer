@@ -251,7 +251,16 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def update_percentages_priority_campaigns(cls, id_campaign, activate):
-        pass
+        cls.connect_redis_dialer()
+        cls.REDIS_DIALER_CONNECTION.hset(f'CAMP:{id_campaign}:DISTRUTION', 'STATUS', activate)
+        priority = cls.REDIS_DIALER_CONNECTION.hget(f'CAMP:{id_campaign}:DISTRUTION', 'PRIORITY')
+        if activate:
+            # update the percentages of all active campaigns
+            total_priority = 0
+            for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match='CAMP:*:DISTRUTION', count=1000):
+                if cls.REDIS_DIALER_CONNECTION.hget(key, 'STATUS'):
+                    total_priority += cls.REDIS_DIALER_CONNECTION.hget(key, 'PRIORITY')
+            return priority / total_priority
 
     @classmethod
     def process_campaign_inside(cls, id_campaign):
