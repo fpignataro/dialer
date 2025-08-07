@@ -446,6 +446,7 @@ class AverageWorker(DialerWorker):
                     (campaign_id_data, incidence_rules_data,
                      incidence_rules_disposition_data) = cls.get_campaign_data(
                         id_campaign, cursor_oml, contact_strategy)
+                    priority = campaign_id_data[6]
                     # 1- update campaign table
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the campaign data into omnidialer')
@@ -492,6 +493,9 @@ class AverageWorker(DialerWorker):
             cls.get_incidence_rule_disposition.cache_clear()
         except AttributeError:
             pass
+
+        cls.REDIS_DIALER_CONNECTION.hset(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'PRIORITY', priority)
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} succesfully updated!!!'
 
@@ -556,6 +560,7 @@ class AverageWorker(DialerWorker):
                     logger.debug(
                         f'Campaign {id_campaign}: inserting the campaign data into omnidialer')
                     campaign_id_data = campaign_id_data + (prefix,)
+                    priority = campaign_id_data[6]
                     cursor_dialer.execute(
                         """INSERT INTO campaign (id, oml_status, name, start_date, end_date,
                         duplicates_control, priority, strategy, wait, initial_predictive_model,
@@ -580,6 +585,8 @@ class AverageWorker(DialerWorker):
                             campaign_id) VALUES (%s, %s, %s, %s, %s, %s);""", incidence_rule)
                     cls.copy_contacts_from_oml(cursor_dialer, cursor_oml, id_campaign)
                     cls.REDIS_DIALER_CONNECTION.set(f'OML:CALLS:{id_campaign}:DIALER', 0)
+                    cls.REDIS_DIALER_CONNECTION.hset(
+                        f'CAMP:{id_campaign}:DISTRIBUTION', 'PRIORITY', priority)
                     cls.REDIS_OML_CONNECTION.publish(
                         'OML:CHANNEL:DIALER',
                         json.dumps({'type': 'CREATE',
