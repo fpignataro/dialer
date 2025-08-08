@@ -504,7 +504,5 @@ class MyTestSuite(unittest.TestCase):
             self.assertEqual(status_campaign, FINALIZED)
 
 
-
-
 if __name__ == '__main__':
     unittest.main()
