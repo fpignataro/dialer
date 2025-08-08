@@ -249,16 +249,16 @@ class AverageWorker(DialerWorker):
     def allowed_calls_prority_percentage(cls, id_campaign, contacts_attempts_number_prev):
         # we add the numer of call to Redis so other campaigns can use it too
         cls.REDIS_DIALER_CONNECTION.hset(
-            f'CAMP:{id_campaign}:DISTRUTION', 'CALLS', contacts_attempts_number_prev)
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'CALLS', contacts_attempts_number_prev)
         # and we apply the percentage to the total of calls
         total_calls = 0
-        for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match='CAMP:*:DISTRUTION', count=1000):
-            if cls.REDIS_DIALER_CONNECTION.hget(key, 'STATUS'):
-                total_calls += cls.REDIS_DIALER_CONNECTION.hget(
-                    f'CAMP:{id_campaign}:DISTRUTION', 'CALLS')
+        for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match='CAMP:*:DISTRIBUTION', count=1000):
+            if cls.REDIS_DIALER_CONNECTION.hget(key, 'STATUS') == '1':
+                total_calls += int(cls.REDIS_DIALER_CONNECTION.hget(
+                    f'CAMP:{id_campaign}:DISTRIBUTION', 'CALLS'))
 
-        percentage = cls.REDIS_DIALER_CONNECTION.hget(
-            f'CAMP:{id_campaign}:DISTRUTION', 'PERCENTAGE')
+        percentage = float(cls.REDIS_DIALER_CONNECTION.hget(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'PERCENTAGE'))
 
         assigned_calls = max(percentage * total_calls, 1)
 
@@ -267,17 +267,21 @@ class AverageWorker(DialerWorker):
     @classmethod
     def update_percentages_priority_campaigns(cls, id_campaign, activate):
         cls.connect_redis_dialer()
-        cls.REDIS_DIALER_CONNECTION.hset(f'CAMP:{id_campaign}:DISTRUTION', 'STATUS', activate)
-        priority = cls.REDIS_DIALER_CONNECTION.hget(f'CAMP:{id_campaign}:DISTRUTION', 'PRIORITY')
+        cls.REDIS_DIALER_CONNECTION.hset(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'STATUS', int(activate))
+        priority = int(cls.REDIS_DIALER_CONNECTION.hget(
+            f'CAMP:{id_campaign}:DISTRIBUTION', 'PRIORITY'))
+
         if activate:
             # update the percentages of all active campaigns
             total_priority = 0
-            for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match='CAMP:*:DISTRUTION', count=1000):
-                if cls.REDIS_DIALER_CONNECTION.hget(key, 'STATUS'):
-                    total_priority += cls.REDIS_DIALER_CONNECTION.hget(key, 'PRIORITY')
+            for key in cls.REDIS_DIALER_CONNECTION.scan_iter(
+                    match='CAMP:*:DISTRIBUTION', count=1000):
+                if cls.REDIS_DIALER_CONNECTION.hget(key, 'STATUS') == '1':
+                    total_priority += int(cls.REDIS_DIALER_CONNECTION.hget(key, 'PRIORITY'))
             percentage = priority / total_priority
             cls.REDIS_DIALER_CONNECTION.hset(
-                f'CAMP:{id_campaign}:DISTRUTION', 'PERCENTAGE', percentage)
+                f'CAMP:{id_campaign}:DISTRIBUTION', 'PERCENTAGE', percentage)
 
     @classmethod
     def process_campaign_inside(cls, id_campaign):
