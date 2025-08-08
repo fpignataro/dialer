@@ -372,6 +372,32 @@ class MyTestSuite(unittest.TestCase):
         self.assertFalse(AverageWorker.GM_CLIENT.submit_job.called)
         AverageWorker.GM_CLIENT.submit_job.reset_mock()
 
+    def test_suspend_campaign_schedules_call_next_day(self):
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            # set campaign opening hours for current day to end its range 1 minute from now
+            cursor_dialer.execute("UPDATE campaign SET"
+                                  " start_date = CURRENT_DATE - INTERVAL '2 day',"
+                                  "end_date = CURRENT_DATE - INTERVAL '1 day'"
+                                  " WHERE id = 4;")
+        job = GearmanJob(None, None, b'process-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
+                         b'{"id_campaign": "4"}')
+        AverageWorker.process_campaign(self.worker, job)
+        # check an schedule task was sent for the next allowed day
+
+    def test_suspend_campaign_schedules_call_same_day(self):
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            # set campaign opening hours for current day to end start its range 1 minute from now
+            cursor_dialer.execute("UPDATE campaign SET"
+                                  " start_date = CURRENT_DATE - INTERVAL '2 day',"
+                                  "end_date = CURRENT_DATE - INTERVAL '1 day'"
+                                  " WHERE id = 4;")
+        job = GearmanJob(None, None, b'process-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
+                         b'{"id_campaign": "4"}')
+        AverageWorker.process_campaign(self.worker, job)
+        # check an schedule task was sent for the same day for the start of the opening hour
+
     def test_handle_campaign_general(self):
         AverageWorker.process_campaign = MagicMock()
         # check campaign entry creation and related tables too
@@ -476,6 +502,8 @@ class MyTestSuite(unittest.TestCase):
             AverageWorker.stop_campaign(self.worker, job)
             status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, FINALIZED)
+
+
 
 
 if __name__ == '__main__':
