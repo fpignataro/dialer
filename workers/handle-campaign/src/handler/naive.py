@@ -349,12 +349,13 @@ class AverageWorker(DialerWorker):
     def get_next_allowed_date(cls, id_campaign, extra_info):
         (day_of_week_allowed, day_of_week, hour_match, current_date, hour,
          minute, campaign_info) = extra_info
-        (hour_start, hour_end, monday, tuesday, wednesday, thursday, friday, saturday,
+        (hour_start, __, monday, tuesday, wednesday, thursday, friday, saturday,
          sunday) = campaign_info
         permission_days_campaign = campaign_info[2:]
         # if the day of the week is not allowed get the next day of week allowed with hour_start
         if not day_of_week_allowed:
-            return cls.get_next_day_of_week_allowed(day_of_week, current_date, hour_start)
+            return cls.get_next_day_of_week_allowed(
+                permission_days_campaign, day_of_week, current_date, hour_start)
         # if current time < hour_start, just use the same day with hour_start
         # else, get the next day of week allowed with hour start
         current_time = datetime.time(hour, minute)
@@ -928,7 +929,7 @@ class AverageWorker(DialerWorker):
             cursor_dialer = conn_dialer.cursor()
             status_campaign = cls.get_campaign_status(id_campaign, cursor_dialer)
             if status_campaign == ACTIVE:
-                if cls.is_allowed_to_call(id_campaign):
+                if cls.is_allowed_to_call(id_campaign)[0]:
                     logger.debug(
                         f'Attempting to make a contact in campaign {id_campaign} '
                         f'to contact {id_contact}')

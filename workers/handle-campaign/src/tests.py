@@ -14,11 +14,12 @@ import psycopg
 
 import json
 
+from datetime import timedelta
 from gearman.job import GearmanJob
 from gearman.worker import GearmanWorker
 
 from handler.naive import (AverageWorker, ACTIVE, PAUSED, CREATED, FINALIZED, STATUS_SELECTED_CALL,
-                           STATUS_CREATED)
+                           STATUS_CREATED, requests)
 
 
 class MyTestSuite(unittest.TestCase):
@@ -373,32 +374,58 @@ class MyTestSuite(unittest.TestCase):
         AverageWorker.GM_CLIENT.submit_job.reset_mock()
 
     def test_suspend_campaign_schedules_call_next_day(self):
-        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
-            cursor_dialer = conn_dialer.cursor()
-            # set campaign opening hours for current day to end its range 1 minute from now
-            cursor_dialer.execute("UPDATE campaign SET"
-                                  " start_date = CURRENT_DATE - INTERVAL '2 day',"
-                                  "end_date = CURRENT_DATE - INTERVAL '1 day'"
-                                  " WHERE id = 4;")
+        current_date = datetime.datetime.now().date()
+        extra_info = (False,                            # failed day of week match
+                      0,                                # Sunday
+                      False,                            # hour match
+                      current_date,                     # current_date,
+                      17,                               # hour,
+                      9,                                # minute,
+                      # campaign_info
+                      (datetime.time(17, 10), datetime.time(17, 17), True, True, True, True, True,
+                       True, True),
+                      )
+        AverageWorker.opening_hours_match = MagicMock(return_value=(False, extra_info))
+        requests.post = MagicMock()
+        AverageWorker.set_campaign_status(4, ACTIVE)
         job = GearmanJob(None, None, b'process-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"id_campaign": "4"}')
         AverageWorker.process_campaign(self.worker, job)
-        # check an schedule task was sent for the next allowed day
+        self.assertTrue(requests.post.called)
+        self.assertEqual(requests.post.call_args[0][0],
+                         'http://scheduler-api/add-process-campaign/4')
+        expected_date = current_date + timedelta(days=1)
+        expected_datetime = datetime.datetime.combine(expected_date, datetime.time(17, 10))
+        self.assertEqual(requests.post.call_args[1]['json']['datetime_start'],
+                         expected_datetime.strftime('%d/%m/%y %H:%M:%S'))
 
-    def test_suspend_campaign_schedules_call_same_day(self):
-        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
-            cursor_dialer = conn_dialer.cursor()
-            # set campaign opening hours for current day to end start its range 1 minute from now
-            cursor_dialer.execute("UPDATE campaign SET"
-                                  " start_date = CURRENT_DATE - INTERVAL '2 day',"
-                                  "end_date = CURRENT_DATE - INTERVAL '1 day'"
-                                  " WHERE id = 4;")
+    def test_suspend_campaign_schedules_same_day(self):
+        current_date = datetime.datetime.now().date()
+        extra_info = (True,                             # failed day of week match
+                      0,                                # Sunday
+                      False,                            # hour match
+                      current_date,                     # current_date,
+                      17,                               # hour,
+                      9,                                # minute,
+                      # campaign_info
+                      (datetime.time(17, 10), datetime.time(17, 17), True, True, True, True, True,
+                       True, True),
+                      )
+        AverageWorker.opening_hours_match = MagicMock(return_value=(False, extra_info))
+        requests.post = MagicMock()
+        AverageWorker.set_campaign_status(4, ACTIVE)
         job = GearmanJob(None, None, b'process-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
                          b'{"id_campaign": "4"}')
         AverageWorker.process_campaign(self.worker, job)
-        # check an schedule task was sent for the same day for the start of the opening hour
+        self.assertTrue(requests.post.called)
+        self.assertEqual(requests.post.call_args[0][0],
+                         'http://scheduler-api/add-process-campaign/4')
+        expected_datetime = datetime.datetime.combine(current_date, datetime.time(17, 10))
+        self.assertEqual(requests.post.call_args[1]['json']['datetime_start'],
+                         expected_datetime.strftime('%d/%m/%y %H:%M:%S'))
 
     def test_handle_campaign_general(self):
+        process_campaign_cm = AverageWorker.process_campaign
         AverageWorker.process_campaign = MagicMock()
         # check campaign entry creation and related tables too
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
@@ -502,6 +529,8 @@ class MyTestSuite(unittest.TestCase):
             AverageWorker.stop_campaign(self.worker, job)
             status_campaign = AverageWorker.get_campaign_status(id_campaign, cursor_dialer)
             self.assertEqual(status_campaign, FINALIZED)
+
+            AverageWorker.process_campaign = process_campaign_cm
 
 
 if __name__ == '__main__':
