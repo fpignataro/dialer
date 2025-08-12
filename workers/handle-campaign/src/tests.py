@@ -401,9 +401,9 @@ class MyTestSuite(unittest.TestCase):
 
     def test_suspend_campaign_schedules_same_day(self):
         current_date = datetime.datetime.now().date()
-        extra_info = (True,                             # failed day of week match
+        extra_info = (True,                             # day matches
                       0,                                # Sunday
-                      False,                            # hour match
+                      False,                            # hour not matches
                       current_date,                     # current_date,
                       17,                               # hour,
                       9,                                # minute,
@@ -423,6 +423,43 @@ class MyTestSuite(unittest.TestCase):
         expected_datetime = datetime.datetime.combine(current_date, datetime.time(17, 10))
         self.assertEqual(requests.post.call_args[1]['json']['datetime_start'],
                          expected_datetime.strftime('%d/%m/%y %H:%M:%S'))
+
+    def test_create_campaign_sets_priority(self):
+        priority = int(AverageWorker.REDIS_DIALER_CONNECTION.hget(
+            'CAMP:4:DISTRIBUTION', 'PRIORITY'))
+        self.assertEqual(priority, 10)  # from the initial campaign
+
+    def test_pause_campaign_inactive_campaign_redis(self):
+        AverageWorker.set_campaign_status(4, PAUSED)
+        job = GearmanJob(None, None, b'process-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
+                         b'{"id_campaign": "4"}')
+        AverageWorker.process_campaign(self.worker, job)
+        status = int(AverageWorker.REDIS_DIALER_CONNECTION.hget(
+            'CAMP:4:DISTRIBUTION', 'STATUS'))
+        self.assertEqual(status, 0)
+
+    def test_finalize_campaign_inactive_campaign_redis(self):
+        AverageWorker.set_campaign_status(4, FINALIZED)
+        job = GearmanJob(None, None, b'process-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
+                         b'{"id_campaign": "4"}')
+        AverageWorker.process_campaign(self.worker, job)
+        status = int(AverageWorker.REDIS_DIALER_CONNECTION.hget(
+            'CAMP:4:DISTRIBUTION', 'STATUS'))
+        self.assertEqual(status, 0)
+
+    def test_calculation_percentage_priority_active_ones(self):
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:1:DISTRIBUTION', 'STATUS', 0)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:1:DISTRIBUTION', 'PRIORITY', 3)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'STATUS', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'PRIORITY', 10)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'STATUS', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'PRIORITY', 5)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'STATUS', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'PRIORITY', 1)
+        AverageWorker.update_percentages_priority_campaigns(4, True)
+        percentage = float(AverageWorker.REDIS_DIALER_CONNECTION.hget(
+            'CAMP:4:DISTRIBUTION', 'PERCENTAGE'))
+        self.assertEqual(percentage, 0.0625)
 
     def test_handle_campaign_general(self):
         process_campaign_cm = AverageWorker.process_campaign
