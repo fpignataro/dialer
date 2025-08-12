@@ -16,6 +16,7 @@ import time
 
 from datetime import timedelta
 from decimal import Decimal
+from math import floor
 from time import sleep
 
 from settings.default import (REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JOB_SERVERS,
@@ -260,7 +261,7 @@ class AverageWorker(DialerWorker):
         percentage = float(cls.REDIS_DIALER_CONNECTION.hget(
             f'CAMP:{id_campaign}:DISTRIBUTION', 'PERCENTAGE'))
 
-        assigned_calls = max(percentage * total_calls, 1)
+        assigned_calls = max(floor(percentage * total_calls), 1)
 
         return min(assigned_calls, contacts_attempts_number_prev)
 
