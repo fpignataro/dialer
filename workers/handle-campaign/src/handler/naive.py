@@ -255,8 +255,7 @@ class AverageWorker(DialerWorker):
         total_calls = 0
         for key in cls.REDIS_DIALER_CONNECTION.scan_iter(match='CAMP:*:DISTRIBUTION', count=1000):
             if cls.REDIS_DIALER_CONNECTION.hget(key, 'STATUS') == '1':
-                total_calls += int(cls.REDIS_DIALER_CONNECTION.hget(
-                    f'CAMP:{id_campaign}:DISTRIBUTION', 'CALLS'))
+                total_calls += int(cls.REDIS_DIALER_CONNECTION.hget(key, 'CALLS'))
 
         percentage = float(cls.REDIS_DIALER_CONNECTION.hget(
             f'CAMP:{id_campaign}:DISTRIBUTION', 'PERCENTAGE'))

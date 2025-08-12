@@ -461,6 +461,24 @@ class MyTestSuite(unittest.TestCase):
             'CAMP:4:DISTRIBUTION', 'PERCENTAGE'))
         self.assertEqual(percentage, 0.0625)
 
+    def test_distribution_according_priority(self):
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:1:DISTRIBUTION', 'STATUS', 0)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:1:DISTRIBUTION', 'PRIORITY', 3)
+
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'STATUS', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'PRIORITY', 10)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:2:DISTRIBUTION', 'CALLS', 20)
+
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'STATUS', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'PRIORITY', 5)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:3:DISTRIBUTION', 'CALLS', 30)
+
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'STATUS', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'PRIORITY', 1)
+        AverageWorker.REDIS_DIALER_CONNECTION.hset('CAMP:4:DISTRIBUTION', 'PERCENTAGE', 0.0625)
+        allowed_calls = AverageWorker.allowed_calls_prority_percentage(4, 50)
+        self.assertEqual(allowed_calls, 6)
+
     def test_handle_campaign_general(self):
         process_campaign_cm = AverageWorker.process_campaign
         AverageWorker.process_campaign = MagicMock()
