@@ -8,7 +8,7 @@ import re
 import json
 import os
 import redis
-import psycopg
+from psycopg_pool import ConnectionPool
 import gearman.client
 import requests
 import datetime
@@ -190,6 +190,8 @@ class AverageWorker(DialerWorker):
                                       f'{POSTGRES_DIALER_PORT}/{POSTGRES_DIALER_DB}')
     REDIS_OML_CONNECTION = None
     REDIS_DIALER_CONNECTION = None
+    POSTGRES_OML_POOL = None
+    POSTGRES_DIALER_POOL = None
     GM_CLIENT = gearman.GearmanClient(GEARMAN_JOB_SERVERS)
 
     ari = ARI(
@@ -200,8 +202,20 @@ class AverageWorker(DialerWorker):
     )
 
     @classmethod
+    def get_oml_connection(cls):
+        if cls.POSTGRES_OML_POOL is None:
+            cls.POSTGRES_OML_POOL = ConnectionPool(cls.POSTGRES_OML_CONNECTION_STR)
+        return cls.POSTGRES_OML_POOL.connection()
+
+    @classmethod
+    def get_dialer_connection(cls):
+        if cls.POSTGRES_DIALER_POOL is None:
+            cls.POSTGRES_DIALER_POOL = ConnectionPool(cls.POSTGRES_DIALER_CONNECTION_STR)
+        return cls.POSTGRES_DIALER_POOL.connection()
+
+    @classmethod
     def insert_job(cls, job):
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+        with cls.get_dialer_connection() as conn:
             cursor = conn.cursor()
             job_unique = job.unique.decode('utf8')
             job_name = job.task.decode('utf8')
@@ -212,20 +226,20 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def save_job_error(cls, id_job, exception):
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+        with cls.get_dialer_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('UPDATE jobs SET status = %s, error = %s WHERE id = %s;',
                            (JOB_FAILED, exception, id_job))
 
     @classmethod
     def remove_job(cls, id_job):
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+        with cls.get_dialer_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('DELETE FROM jobs WHERE id = %s;', (id_job,))
 
     @classmethod
     def system_is_active(cls):
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT is_active FROM system_control;')
             return cursor_dialer.fetchone()[0]
@@ -283,7 +297,7 @@ class AverageWorker(DialerWorker):
         # check if opening hours are ok
         # TODO: a possible optimization here could be pause the campaign and place a scheduled task
         # to resume it later at the following allowed opening hour
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             return cls.opening_hours_match(cursor_dialer, id_campaign)
         return False
@@ -344,12 +358,12 @@ class AverageWorker(DialerWorker):
         logger.debug(f'Editing the campaign {id_campaign}')
         contact_strategy = data['contact_strategy']
         # 0- pause campaign
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             with conn_dialer.transaction():
                 cursor_dialer = conn_dialer.cursor()
                 orig_status_campaign = cls.get_campaign_status(id_campaign, cursor_dialer)
                 cls.set_campaign_status(id_campaign, PAUSED, cursor_dialer)
-                with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
+                with cls.get_oml_connection() as conn_oml:
                     cursor_oml = conn_oml.cursor()
                     (campaign_id_data, incidence_rules_data,
                      incidence_rules_disposition_data) = cls.get_campaign_data(
@@ -444,10 +458,10 @@ class AverageWorker(DialerWorker):
         prefix = data['prefix']
         cls.connect_redis_dialer()
         cls.connect_redis_oml()
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             with conn_dialer.transaction():
                 cursor_dialer = conn_dialer.cursor()
-                with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
+                with cls.get_oml_connection() as conn_oml:
                     cursor_oml = conn_oml.cursor()
                     (campaign_id_data, incidence_rules_data,
                      incidence_rules_disposition_data) = cls.get_campaign_data(
@@ -500,7 +514,7 @@ class AverageWorker(DialerWorker):
         # this is due to these contacts were marked and not called
         # or at least we didn't receive events from Asterisk to change their state
         logger.debug(f'Campaign {id_campaign}: cleaning broken selected contacts')
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+        with cls.get_dialer_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 'UPDATE contact_in_campaign SET status = %s WHERE'
@@ -577,7 +591,7 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def campaign_is_active(cls, id_campaign):
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             status = cls.get_campaign_status(id_campaign, cursor_dialer)
             # notify to OML if the campaign is outdated and pause the campaign
@@ -637,7 +651,7 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def get_number_active_campaigns(cls):
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+        with cls.get_dialer_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """SELECT Count(*) FROM ONLY campaign WHERE dialer_status = %s""",
@@ -647,7 +661,7 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def get_agent_ids_campaign(cls, id_campaign):
-        with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
+        with cls.get_oml_connection() as conn_oml:
             cursor_oml = conn_oml.cursor()
             TYPE_DIALER = 2
             STATUS_ACTIVE = 2
@@ -704,7 +718,7 @@ class AverageWorker(DialerWorker):
     @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
     def get_campaign_max_available_channels(cls, id_campaign):
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT max_channels FROM ONLY campaign WHERE id = %s;',
                                   (id_campaign,))
@@ -745,7 +759,7 @@ class AverageWorker(DialerWorker):
         logger.debug("Campaign {0}: active_channels={1}".format(id_campaign, active_channels))
         logger.debug("Campaign {0}: campaign_max_available_channels={1}".format(
             id_campaign, campaign_max_available_channels))
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT initial_boost_factor FROM ONLY campaign WHERE id = %s',
                                   (id_campaign,))
@@ -762,7 +776,7 @@ class AverageWorker(DialerWorker):
     def take_contacts(cls, contacts_attempts_number, id_campaign):
         logger.debug("Campaign {0}: contacts_attempts_number={1}".format(
             id_campaign, contacts_attempts_number))
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute("""UPDATE contact_in_campaign as cc
                                      SET status = %s,
@@ -793,7 +807,7 @@ class AverageWorker(DialerWorker):
         id_campaign = data['id_campaign']
         contact = data['contact']
         id_contact = contact[0]
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             status_campaign = cls.get_campaign_status(id_campaign, cursor_dialer)
             if status_campaign == ACTIVE:
@@ -913,7 +927,7 @@ class AverageWorker(DialerWorker):
     @timed_lru_cache(seconds=600, maxsize=128)
     def get_prefix(cls, id_campaign):
         logger.debug(f'Campaign {id_campaign}: getting prefix')
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
                 'SELECT prefix FROM campaign WHERE'
@@ -926,7 +940,7 @@ class AverageWorker(DialerWorker):
     def get_incidence_rule(cls, id_campaign, status):
         logger.debug(f'Campaign {id_campaign}: getting the incidence rule for {status}')
         status_code = NAME_TO_STATUS[status]
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
                 'SELECT retry_later, max_attempt, in_mode FROM ONLY incidence_rules WHERE'
@@ -939,7 +953,7 @@ class AverageWorker(DialerWorker):
     def get_incidence_rule_disposition(cls, id_campaign, disposition_option):
         logger.debug(f'Campaign {id_campaign}: getting the incidence rule for '
                      f'disposition {disposition_option}')
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
                 'SELECT retry_later, max_attempt, in_mode FROM ONLY incidence_rules_disposition'
@@ -1042,7 +1056,7 @@ class AverageWorker(DialerWorker):
         #   contact must be called again, schedule a call according to the incidence rule
         cls.connect_redis_dialer()
         status_code = NAME_TO_STATUS[status]
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             incidence_rule = cls.get_incidence_rule(id_campaign, status)
             cls.apply_incidence_rule(
@@ -1064,7 +1078,7 @@ class AverageWorker(DialerWorker):
                 logger.debug(f'Campaign {id_campaign}: Receiving answer agent')
                 cls.set_contact_status(id_campaign, contact_id, status)
                 cls.connect_redis_dialer()
-                with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+                with cls.get_dialer_connection() as conn_dialer:
                     cursor_dialer = conn_dialer.cursor()
                     cursor_dialer.execute('UPDATE contact_in_campaign SET final_status = %s WHERE'
                                           ' id_campaign = %s and id_contact = %s;',
@@ -1125,7 +1139,7 @@ class AverageWorker(DialerWorker):
     @classmethod
     def set_contact_status(cls, id_campaign, contact_id, status, type_status=PHONE_TYPE):
         status_code = NAME_TO_STATUS[status]
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             if status_code == STATUS_ANSWERED_PSTN:
                 cursor_dialer.execute(
@@ -1155,7 +1169,7 @@ class AverageWorker(DialerWorker):
         logger.debug(f'Removing campaign with id = {id_campaign}')
         cls.connect_redis_dialer()
         cls.connect_redis_oml()
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+        with cls.get_dialer_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('DELETE FROM campaign WHERE id = %s;', (id_campaign,))
             cls.REDIS_DIALER_CONNECTION.delete(f'OML:CALLS:{id_campaign}:DIALER')
@@ -1171,7 +1185,7 @@ class AverageWorker(DialerWorker):
     def set_campaign_status(cls, id_campaign, new_status, cursor=None, sync_omnileads=False):
         if not sync_omnileads:
             if cursor is None:
-                with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+                with cls.get_dialer_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
                         'UPDATE campaign SET dialer_status = %s WHERE id = %s;',
@@ -1181,10 +1195,10 @@ class AverageWorker(DialerWorker):
                     'UPDATE campaign SET dialer_status = %s WHERE id = %s;',
                     (new_status, id_campaign))
         else:
-            with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            with cls.get_dialer_connection() as conn_dialer:
                 with conn_dialer.transaction():
                     cursor_dialer = conn_dialer.cursor()
-                    with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
+                    with cls.get_oml_connection() as conn_oml:
                         cursor_oml = conn_oml.cursor()
                         cursor_dialer.execute(
                             'UPDATE campaign SET dialer_status = %s WHERE id = %s;',
@@ -1228,7 +1242,7 @@ class AverageWorker(DialerWorker):
         id_campaign, contact_id, phone_number = cls.get_contact_data(ari_event_data)
         previous_stats = cls.REDIS_DIALER_CONNECTION.hgetall(f'CAMP:{id_campaign}:COUNTER_PREV') \
             or {}
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
                 """SELECT COUNT(*) FROM ONLY contact_in_campaign WHERE id_campaign = %s
@@ -1305,7 +1319,7 @@ class AverageWorker(DialerWorker):
         logger.debug(f'Adding disposition option {disposition_option} to contact {id_contact}'
                      f' in campaign {id_campaign}')
         cls.connect_redis_dialer()
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
                 """UPDATE contact_in_campaign as cc
@@ -1367,7 +1381,7 @@ class AverageWorker(DialerWorker):
         mode = data['mode']
         STATUS = 1
         logger.debug(f'Adding incidence rule to campaign {id_campaign}')
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             if type_rule == STATUS:
                 status = data['status']
@@ -1397,7 +1411,7 @@ class AverageWorker(DialerWorker):
         STATUS = 1
         logger.debug(f'Removing incidence_rule {id_rule} of type {type_rule_label} '
                      f'in campaign with id = {id_campaign}')
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn:
+        with cls.get_dialer_connection() as conn:
             cursor = conn.cursor()
             if type_rule == STATUS:
                 cursor.execute('DELETE FROM incidence_rules WHERE id = %s;', (id_rule,))
@@ -1418,7 +1432,7 @@ class AverageWorker(DialerWorker):
         mode = data['mode']
         STATUS = 1
         logger.debug(f'Adding incidence rule to campaign {id_campaign}')
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             if type_rule == STATUS:
                 status = data['status']
@@ -1463,10 +1477,10 @@ class AverageWorker(DialerWorker):
                 match=f'CONTACT:*:CAMP:{id_campaign}:HISTORY', count=1000):
             AverageWorker.REDIS_DIALER_CONNECTION.delete(key)
         # 2- remove Postgres related reports & contacts history
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             with conn_dialer.transaction():
                 cursor_dialer = conn_dialer.cursor()
-                with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
+                with cls.get_oml_connection() as conn_oml:
                     cursor_oml = conn_oml.cursor()
                     cursor_dialer.execute(
                         'DELETE FROM contact_in_campaign WHERE id_campaign = %s', (id_campaign,))
@@ -1483,7 +1497,7 @@ class AverageWorker(DialerWorker):
         data = cls.decode_payload(job.data)
         if data['type'] == 'init':
             logger.debug('HTMX related: getting the information of campaigns for the first time')
-            with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            with cls.get_dialer_connection() as conn_dialer:
                 cursor_dialer = conn_dialer.cursor()
                 cursor_dialer.execute('SELECT id, name, dialer_status from campaign;')
                 campaigns = cursor_dialer.fetchall()
@@ -1503,10 +1517,10 @@ class AverageWorker(DialerWorker):
     @classmethod
     def stop_dialer(cls):
         logger.debug('Stopping dialer')
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             with conn_dialer.transaction():
                 cursor_dialer = conn_dialer.cursor()
-                with psycopg.connect(cls.POSTGRES_OML_CONNECTION_STR) as conn_oml:
+                with cls.get_oml_connection() as conn_oml:
                     cursor_oml = conn_oml.cursor()
                     cursor_dialer.execute(
                         'UPDATE system_control SET is_active = false, updated_at = now()'
@@ -1529,7 +1543,7 @@ class AverageWorker(DialerWorker):
     @classmethod
     def start_dialer(cls):
         logger.debug('Starting dialer')
-        with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+        with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute(
                 'UPDATE system_control SET is_active = true, updated_at = now() WHERE id = true;')
