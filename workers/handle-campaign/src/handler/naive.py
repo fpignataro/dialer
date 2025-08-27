@@ -18,7 +18,8 @@ from datetime import timedelta
 from decimal import Decimal
 from time import sleep
 
-from settings.default import REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JOB_SERVERS
+from settings.default import (REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JOB_SERVERS,
+                              TIME_BETWEEN_CALLS)
 
 import logging
 
@@ -255,9 +256,10 @@ class AverageWorker(DialerWorker):
                 initial_time = datetime.datetime.now()
                 caps_calls_counter = 0
                 contacts = cls.take_contacts(contacts_attempts_number, id_campaign)
-                if not contacts:
-                    sleep(1)
-                    continue
+                if TIME_BETWEEN_CALLS:
+                    if not contacts:
+                        sleep(TIME_BETWEEN_CALLS)
+                        continue
                 for contact in contacts:
                     while True:
                         # we need to ensure the selected contact is eventually called

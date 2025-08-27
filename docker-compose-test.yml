@@ -38,6 +38,7 @@ services:
       - GEARMAN_JOBS=start-campaign
       - PYTHON_LOGLEVEL=${PYTHON_LOGLEVEL}
       - DIALER_ACD_HOST=${DIALER_ACD_HOST}
+      - TIME_BETWEEN_CALLS=${TIME_BETWEEN_CALLS}
     depends_on:
       - job_server
       - postgresql
