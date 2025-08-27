@@ -1,5 +1,5 @@
 git+https://github.com/alejandrozf/python-gearman.git@azf-fix-python-3.12.8#egg=gearman3
 redis==6.1.0
 requests
-psycopg[binary]
+psycopg[binary,pool]
 Jinja2==3.0.0
