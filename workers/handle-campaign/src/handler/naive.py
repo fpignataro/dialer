@@ -623,7 +623,8 @@ class AverageWorker(DialerWorker):
         return result, extra_info
 
     @classmethod
-    def get_campaign_status(cls, id_campaign, dialer_cursor):
+    def get_campaign_status(cls, id_campaign, connection):
+        dialer_cursor = connection.cursor()
         dialer_cursor.execute(
             'SELECT dialer_status FROM ONLY campaign WHERE id = %s', (id_campaign,))
         return dialer_cursor.fetchone()[0]
@@ -655,7 +656,7 @@ class AverageWorker(DialerWorker):
     def campaign_is_active(cls, id_campaign):
         with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            status = cls.get_campaign_status(id_campaign, cursor_dialer)
+            status = cls.get_campaign_status(id_campaign, conn_dialer)
             # notify to OML if the campaign is outdated and pause the campaign
             cursor_dialer.execute(
                 """SELECT id
@@ -877,7 +878,7 @@ class AverageWorker(DialerWorker):
         id_contact = contact[0]
         with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            status_campaign = cls.get_campaign_status(id_campaign, cursor_dialer)
+            status_campaign = cls.get_campaign_status(id_campaign, conn_dialer)
             if status_campaign == ACTIVE:
                 if cls.is_allowed_to_call(id_campaign):
                     logger.debug(
@@ -1254,15 +1255,16 @@ class AverageWorker(DialerWorker):
         return b'Campaign was deleted'
 
     @classmethod
-    def set_campaign_status(cls, id_campaign, new_status, cursor=None, sync_omnileads=False):
+    def set_campaign_status(cls, id_campaign, new_status, connection=None, sync_omnileads=False):
         if not sync_omnileads:
-            if cursor is None:
+            if connection is None:
                 with cls.get_dialer_connection() as conn:
                     cursor = conn.cursor()
                     cursor.execute(
                         'UPDATE campaign SET dialer_status = %s WHERE id = %s;',
                         (new_status, id_campaign))
             else:
+                cursor = connection.cursor()
                 cursor.execute(
                     'UPDATE campaign SET dialer_status = %s WHERE id = %s;',
                     (new_status, id_campaign))
