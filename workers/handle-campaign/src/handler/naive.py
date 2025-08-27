@@ -240,6 +240,9 @@ class AverageWorker(DialerWorker):
                 initial_time = datetime.datetime.now()
                 caps_calls_counter = 0
                 contacts = cls.take_contacts(contacts_attempts_number, id_campaign)
+                if not contacts:
+                    sleep(1)
+                    continue
                 for contact in contacts:
                     while True:
                         # we need to ensure the selected contact is eventually called
@@ -260,6 +263,8 @@ class AverageWorker(DialerWorker):
                                 logger.debug(f"Campaign {id_campaign}: CAPS sleep")
                                 remaining = (timedelta(seconds=1) - current_delta).total_seconds()
                                 sleep(remaining)
+            else:
+                sleep(1)
 
     @classmethod
     def connect_redis_oml(cls):
@@ -805,6 +810,7 @@ class AverageWorker(DialerWorker):
                     logger.debug(
                         f'Campaign {id_campaign} is not allowed to call at the moment, '
                         f'aborting call to contact {id_contact}')
+                    sleep(1)
             elif status_campaign == PAUSED:
                 logger.debug(
                     f'Campaign {id_campaign} is paused, aborting call to contact {id_contact}')
