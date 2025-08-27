@@ -448,6 +448,10 @@ class AverageWorker(DialerWorker):
                     cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
 
         cls.get_campaign_max_available_channels.cache_clear()
+        cls.get_boost_factor.cache_clear()
+        cls.get_campaign_max_available_channels.cache_clear()
+        cls.get_incidence_rule.cache_clear()
+        cls.get_incidence_rule_disposition.cache_clear()
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} succesfully updated!!!'
 
@@ -802,6 +806,16 @@ class AverageWorker(DialerWorker):
         return 0
 
     @classmethod
+    @timed_lru_cache(seconds=600, maxsize=128)
+    def get_boost_factor(cls, id_campaign):
+        with cls.get_dialer_connection() as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('SELECT initial_boost_factor FROM ONLY campaign WHERE id = %s',
+                                  (id_campaign,))
+            boost_factor = cursor_dialer.fetchone()[0]
+            return boost_factor
+
+    @classmethod
     def allowed_parallel_contact_attempts(cls, id_campaign):
         cls.connect_redis_dialer()
         active_channels = cls.get_active_channels(id_campaign)
@@ -815,18 +829,14 @@ class AverageWorker(DialerWorker):
         logger.debug("Campaign {0}: active_channels={1}".format(id_campaign, active_channels))
         logger.debug("Campaign {0}: campaign_max_available_channels={1}".format(
             id_campaign, campaign_max_available_channels))
-        with cls.get_dialer_connection() as conn_dialer:
-            cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute('SELECT initial_boost_factor FROM ONLY campaign WHERE id = %s',
-                                  (id_campaign,))
-            boost_factor = cursor_dialer.fetchone()[0]
-            if cls.REDIS_DIALER_CONNECTION.get(f'CAMP:{id_campaign}:CUSTOMDIALERDST') == '0':
-                allowed_parallel_attempts_acc_agents = int(Decimal(
-                    cls.get_allowed_attempts_according_agents(
-                        id_campaign, active_channels,
-                        campaign_max_available_channels)) * boost_factor)
-                return min(num_available_channels, allowed_parallel_attempts_acc_agents)
-            return num_available_channels
+        boost_factor = cls.get_boost_factor(id_campaign)
+        if cls.REDIS_DIALER_CONNECTION.get(f'CAMP:{id_campaign}:CUSTOMDIALERDST') == '0':
+            allowed_parallel_attempts_acc_agents = int(Decimal(
+                cls.get_allowed_attempts_according_agents(
+                    id_campaign, active_channels,
+                    campaign_max_available_channels)) * boost_factor)
+            return min(num_available_channels, allowed_parallel_attempts_acc_agents)
+        return num_available_channels
 
     @classmethod
     def take_contacts(cls, contacts_attempts_number, id_campaign):
@@ -991,7 +1001,7 @@ class AverageWorker(DialerWorker):
             return cursor_dialer.fetchone()
 
     @classmethod
-    @timed_lru_cache(seconds=6000, maxsize=128)
+    @timed_lru_cache(seconds=600, maxsize=128)
     def get_incidence_rule(cls, id_campaign, status):
         logger.debug(f'Campaign {id_campaign}: getting the incidence rule for {status}')
         status_code = NAME_TO_STATUS[status]
@@ -1234,6 +1244,11 @@ class AverageWorker(DialerWorker):
                 json.dumps({'type': 'DELETE',
                             'camp_id': id_campaign}))
         cls.get_campaign_max_available_channels.cache_clear()
+        cls.get_boost_factor.cache_clear()
+        cls.get_campaign_max_available_channels.cache_clear()
+        cls.get_incidence_rule.cache_clear()
+        cls.get_incidence_rule_disposition.cache_clear()
+        cls.get_prefix.cache_clear()
         return b'Campaign was deleted'
 
     @classmethod
