@@ -882,7 +882,6 @@ class AverageWorker(DialerWorker):
                     logger.debug(
                         f'Campaign {id_campaign} is not allowed to call at the moment, '
                         f'aborting call to contact {id_contact}')
-                    sleep(1)
             elif status_campaign == PAUSED:
                 logger.debug(
                     f'Campaign {id_campaign} is paused, aborting call to contact {id_contact}')
