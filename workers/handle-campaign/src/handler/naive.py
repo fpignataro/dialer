@@ -205,13 +205,15 @@ class AverageWorker(DialerWorker):
     @classmethod
     def get_oml_connection(cls):
         if cls.POSTGRES_OML_POOL is None:
-            cls.POSTGRES_OML_POOL = ConnectionPool(cls.POSTGRES_OML_CONNECTION_STR)
+            cls.POSTGRES_OML_POOL = ConnectionPool(
+                cls.POSTGRES_OML_CONNECTION_STR, min_size=1, max_size=1)
         return cls.POSTGRES_OML_POOL.connection()
 
     @classmethod
     def get_dialer_connection(cls):
         if cls.POSTGRES_DIALER_POOL is None:
-            cls.POSTGRES_DIALER_POOL = ConnectionPool(cls.POSTGRES_DIALER_CONNECTION_STR)
+            cls.POSTGRES_DIALER_POOL = ConnectionPool(
+                cls.POSTGRES_DIALER_CONNECTION_STR, min_size=1, max_size=1)
         return cls.POSTGRES_DIALER_POOL.connection()
 
     @classmethod
