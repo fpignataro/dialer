@@ -394,6 +394,8 @@ class AverageWorker(DialerWorker):
                     message = json.dumps({'id_campaign': id_campaign})
                     cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
 
+        cls.get_campaign_max_available_channels.cache_clear()
+
         response = f'Campaign {id_campaign} with strategy {contact_strategy} succesfully updated!!!'
 
         response = json.dumps({'msg': response})
@@ -700,8 +702,8 @@ class AverageWorker(DialerWorker):
         return int(active_channels)
 
     @classmethod
+    @timed_lru_cache(seconds=600, maxsize=128)
     def get_campaign_max_available_channels(cls, id_campaign):
-        # TODO: consider some caching here?
         with psycopg.connect(cls.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
             cursor_dialer.execute('SELECT max_channels FROM ONLY campaign WHERE id = %s;',
@@ -1162,6 +1164,7 @@ class AverageWorker(DialerWorker):
                 'OML:CHANNEL:DIALER',
                 json.dumps({'type': 'DELETE',
                             'camp_id': id_campaign}))
+        cls.get_campaign_max_available_channels.cache_clear()
         return b'Campaign was deleted'
 
     @classmethod

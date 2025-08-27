@@ -328,6 +328,23 @@ class MyTestSuite(unittest.TestCase):
             cursor_dialer.execute('SELECT COUNT(*) from contact_in_campaign WHERE id_campaign = 4;')
             self.assertEqual(cursor_dialer.fetchone()[0], 1)
 
+    def test_campaign_max_available_channels_cache_invalidation(self):
+        camp_id = 4
+        self.assertEqual(AverageWorker.get_campaign_max_available_channels(camp_id), 1)
+        with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+            cursor_dialer = conn_dialer.cursor()
+            cursor_dialer.execute('UPDATE campaign SET max_channels = 3 WHERE id = %s;', (camp_id,))
+        self.assertEqual(AverageWorker.get_campaign_max_available_channels(camp_id), 1)
+        new_campaign_id_data = self.campaign_id_data[:11] + (3,) + self.campaign_id_data[12:]
+        campaign_mocked_data = (new_campaign_id_data, self.incidence_rules_data,
+                                self.incidence_rules_disposition_data)
+        AverageWorker.get_campaign_data = MagicMock(return_value=campaign_mocked_data)
+        job = GearmanJob(None, None, b'edit-campaign', bytes(str(uuid.uuid4()), encoding='utf8'),
+                         bytes(json.dumps({'id_campaign': '4', 'contact_strategy': [1, 3, 4]}),
+                               encoding='UTF8'))
+        AverageWorker.edit_campaign(self.worker, job)
+        self.assertEqual(AverageWorker.get_campaign_max_available_channels(camp_id), 3)
+
     def test_amd_event_apply_incidence_rules(self):
         AverageWorker.GM_CLIENT.submit_job = MagicMock()
         with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
