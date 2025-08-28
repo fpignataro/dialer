@@ -451,10 +451,14 @@ class AverageWorker(DialerWorker):
                     message = json.dumps({'id_campaign': id_campaign})
                     cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
 
-        cls.get_campaign_max_available_channels.cache_clear()
-        cls.get_boost_factor.cache_clear()
-        cls.get_incidence_rule.cache_clear()
-        cls.get_incidence_rule_disposition.cache_clear()
+        try:
+            cls.get_campaign_max_available_channels.cache_clear()
+            cls.get_boost_factor.cache_clear()
+            cls.get_incidence_rule.cache_clear()
+            cls.get_incidence_rule_disposition.cache_clear()
+        except AttributeError:
+            # if caches not exist
+            pass
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} succesfully updated!!!'
 
@@ -882,7 +886,7 @@ class AverageWorker(DialerWorker):
                     logger.debug(
                         f'Attempting to make a contact in campaign {id_campaign} '
                         f'to contact {id_contact}')
-                    cls.attempt_contact_asterisk(contact, id_campaign)
+                    cls.attempt_contact_asterisk(contact, id_campaign, conn_dialer)
                     cls.connect_redis_dialer()
                     cls.REDIS_DIALER_CONNECTION.hincrby(
                         f'CAMP:{id_campaign}:COUNTER',
@@ -906,11 +910,11 @@ class AverageWorker(DialerWorker):
             return b'Aborted call, campaign is not active'
 
     @classmethod
-    def attempt_contact_asterisk(cls, contact_info, id_campaign):
+    def attempt_contact_asterisk(cls, contact_info, id_campaign, connection):
         logger.debug(f'Campaign {id_campaign}: trying to call the contact')
         id_customer = contact_info[0]
         phone_number = contact_info[2]
-        prefix = cls.get_prefix(id_campaign)
+        prefix = cls.get_prefix(id_campaign, connection)
         if prefix is not None:
             phone_number = prefix[0] + phone_number
 
@@ -991,41 +995,38 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
-    def get_prefix(cls, id_campaign):
+    def get_prefix(cls, id_campaign, conn_dialer):
         logger.debug(f'Campaign {id_campaign}: getting prefix')
-        with cls.get_dialer_connection() as conn_dialer:
-            cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute(
-                'SELECT prefix FROM campaign WHERE'
-                ' id = %s;',
-                (id_campaign,))
-            return cursor_dialer.fetchone()
+        cursor_dialer = conn_dialer.cursor()
+        cursor_dialer.execute(
+            'SELECT prefix FROM campaign WHERE'
+            ' id = %s;',
+            (id_campaign,))
+        return cursor_dialer.fetchone()
 
     @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
-    def get_incidence_rule(cls, id_campaign, status):
+    def get_incidence_rule(cls, id_campaign, status, conn_dialer):
         logger.debug(f'Campaign {id_campaign}: getting the incidence rule for {status}')
         status_code = NAME_TO_STATUS[status]
-        with cls.get_dialer_connection() as conn_dialer:
-            cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute(
-                'SELECT retry_later, max_attempt, in_mode FROM ONLY incidence_rules WHERE'
-                ' campaign_id = %s AND status = %s;',
-                (id_campaign, status_code))
-            return cursor_dialer.fetchone()
+        cursor_dialer = conn_dialer.cursor()
+        cursor_dialer.execute(
+            'SELECT retry_later, max_attempt, in_mode FROM ONLY incidence_rules WHERE'
+            ' campaign_id = %s AND status = %s;',
+            (id_campaign, status_code))
+        return cursor_dialer.fetchone()
 
     @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
-    def get_incidence_rule_disposition(cls, id_campaign, disposition_option):
+    def get_incidence_rule_disposition(cls, id_campaign, disposition_option, conn_dialer):
         logger.debug(f'Campaign {id_campaign}: getting the incidence rule for '
                      f'disposition {disposition_option}')
-        with cls.get_dialer_connection() as conn_dialer:
-            cursor_dialer = conn_dialer.cursor()
-            cursor_dialer.execute(
-                'SELECT retry_later, max_attempt, in_mode FROM ONLY incidence_rules_disposition'
-                ' WHERE campaign_id = %s AND disposition_option_id = %s;',
-                (id_campaign, disposition_option))
-            return cursor_dialer.fetchone()
+        cursor_dialer = conn_dialer.cursor()
+        cursor_dialer.execute(
+            'SELECT retry_later, max_attempt, in_mode FROM ONLY incidence_rules_disposition'
+            ' WHERE campaign_id = %s AND disposition_option_id = %s;',
+            (id_campaign, disposition_option))
+        return cursor_dialer.fetchone()
 
     @classmethod
     def get_next_phone_number(cls, cursor_dialer, id_campaign, contact_id, phone_number):
@@ -1124,7 +1125,7 @@ class AverageWorker(DialerWorker):
         status_code = NAME_TO_STATUS[status]
         with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
-            incidence_rule = cls.get_incidence_rule(id_campaign, status)
+            incidence_rule = cls.get_incidence_rule(id_campaign, status, conn_dialer)
             cls.apply_incidence_rule(
                 cursor_dialer, incidence_rule, contact_id, id_campaign, status_code,
                 PHONE_TYPE, phone_number)
@@ -1244,11 +1245,14 @@ class AverageWorker(DialerWorker):
                 'OML:CHANNEL:DIALER',
                 json.dumps({'type': 'DELETE',
                             'camp_id': id_campaign}))
-        cls.get_campaign_max_available_channels.cache_clear()
-        cls.get_boost_factor.cache_clear()
-        cls.get_incidence_rule.cache_clear()
-        cls.get_incidence_rule_disposition.cache_clear()
-        cls.get_prefix.cache_clear()
+        try:
+            cls.get_campaign_max_available_channels.cache_clear()
+            cls.get_boost_factor.cache_clear()
+            cls.get_incidence_rule.cache_clear()
+            cls.get_incidence_rule_disposition.cache_clear()
+            cls.get_prefix.cache_clear()
+        except AttributeError:
+            pass
         return b'Campaign was deleted'
 
     @classmethod
@@ -1405,15 +1409,16 @@ class AverageWorker(DialerWorker):
                 f'CONTACT:{id_contact}:CAMP:{id_campaign}:HISTORY',
                 str((disposition_option, DISPOSITION_TYPE)))
             cls.connect_redis_dialer()
-            incidence_rule = cls.get_incidence_rule_disposition(id_campaign, disposition_option)
+            incidence_rule = cls.get_incidence_rule_disposition(
+                id_campaign, disposition_option, conn_dialer)
             incidence_rule_applied = cls.apply_incidence_rule(
                 cursor_dialer, incidence_rule, id_contact, id_campaign, disposition_option,
                 DISPOSITION_TYPE, phone_number)
             # if the incidence rule was applied and the campaign is paused, reactivate the campaign
             if incidence_rule_applied:
-                status = cls.get_campaign_status(id_campaign, cursor_dialer)
+                status = cls.get_campaign_status(id_campaign, cursor_dialer, conn_dialer)
                 if status == PAUSED:
-                    cls.set_campaign_status(id_campaign, ACTIVE, cursor=cursor_dialer,
+                    cls.set_campaign_status(id_campaign, ACTIVE, connection=conn_dialer,
                                             sync_omnileads=True)
                     message = json.dumps({'id_campaign': id_campaign})
                     cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
