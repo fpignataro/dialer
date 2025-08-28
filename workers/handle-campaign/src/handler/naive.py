@@ -446,12 +446,13 @@ class AverageWorker(DialerWorker):
                     cls.set_campaign_status(id_campaign, ACTIVE, cursor_dialer)
                     message = json.dumps({'id_campaign': id_campaign})
                     cls.GM_CLIENT.submit_job('process-campaign', message, background=True)
-
-        cls.get_campaign_max_available_channels.cache_clear()
-        cls.get_boost_factor.cache_clear()
-        cls.get_campaign_max_available_channels.cache_clear()
-        cls.get_incidence_rule.cache_clear()
-        cls.get_incidence_rule_disposition.cache_clear()
+        try:
+            cls.get_boost_factor.cache_clear()
+            cls.get_campaign_max_available_channels.cache_clear()
+            cls.get_incidence_rule.cache_clear()
+            cls.get_incidence_rule_disposition.cache_clear()
+        except AttributeError:
+            pass
 
         response = f'Campaign {id_campaign} with strategy {contact_strategy} succesfully updated!!!'
 
@@ -1243,12 +1244,14 @@ class AverageWorker(DialerWorker):
                 'OML:CHANNEL:DIALER',
                 json.dumps({'type': 'DELETE',
                             'camp_id': id_campaign}))
-        cls.get_campaign_max_available_channels.cache_clear()
-        cls.get_boost_factor.cache_clear()
-        cls.get_campaign_max_available_channels.cache_clear()
-        cls.get_incidence_rule.cache_clear()
-        cls.get_incidence_rule_disposition.cache_clear()
-        cls.get_prefix.cache_clear()
+        try:
+            cls.get_boost_factor.cache_clear()
+            cls.get_campaign_max_available_channels.cache_clear()
+            cls.get_incidence_rule.cache_clear()
+            cls.get_incidence_rule_disposition.cache_clear()
+            cls.get_prefix.cache_clear()
+        except AttributeError:
+            pass
         return b'Campaign was deleted'
 
     @classmethod
