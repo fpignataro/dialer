@@ -13,7 +13,7 @@ lint:
 
 test:
   stage: test
-  image: docker:25-alpine
+  image: docker:20.10.15-alpine3.15
   cache:
     key: docker-compose-bin
     paths:
