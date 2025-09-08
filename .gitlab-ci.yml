@@ -19,6 +19,7 @@ test:
     paths:
       - .docker/cli-plugins/docker-compose
   before_script:
+    - apk add --no-cache curl
     - mkdir -p .docker/cli-plugins
     - export DOCKER_CONFIG=$CI_PROJECT_DIR/.docker
     - if [ ! -f "$DOCKER_CONFIG/cli-plugins/docker-compose" ]; then
