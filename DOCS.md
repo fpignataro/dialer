@@ -14,8 +14,6 @@ The relevant environment variables are in this case: *REDIS_OML_SERVER*, *REDIS_
 
 Usage:
 
-The simplest way to use the system is to run the script start-dedicated.bash
-
 Make sure you have Docker & Docker-Compose installed and that you have bash shell available.
 
 Then do:
@@ -332,6 +330,10 @@ The data saved in Redis is related with contact history in a campaign and report
 The system also publish to a PUBSUB channel information about reports, events and status of the campaigns, users can subscribe to OML:CHANNEL:DIALER to get this information.
 
 It is also possible to places agendas for calls using a custom scheduler.
+
+There should be a worker for process-campaign for every campaign dialing in parallel.
+
+The system also includes a simple admin that allows some degree of management on the campaigns and allow to manipulate the general status of the system (start, stop and restart) in gracefully way.
 
 Horizontal scalability
 ======================
