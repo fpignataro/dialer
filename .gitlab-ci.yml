@@ -3,6 +3,15 @@ stages:
   - test
   - build
 
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+  DOCKER_DRIVER: overlay2
+
+services:
+  - name: docker:dind
+    command: ["--tls=false"]
+
 lint:
   stage: lint
   image: python:3.9-alpine
