@@ -16,6 +16,10 @@ def timed_lru_cache(seconds: int, maxsize: int = 128):
 
             return func(*args, **kwargs)
 
+        wrapped_func.cache_clear = func.cache_clear
+        wrapped_func.cache_info = func.cache_info
+        wrapped_func.cache_parameters = func.cache_parameters
+
         return wrapped_func
 
     return wrapper_cache
