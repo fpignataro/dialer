@@ -8,11 +8,12 @@ import re
 import json
 import os
 import redis
-from psycopg_pool import ConnectionPool
+from psycopg_pool import ConnectionPool, PoolTimeout
 import gearman.client
 import requests
 import datetime
 import time
+import atexit
 
 from datetime import timedelta
 from decimal import Decimal
@@ -66,6 +67,14 @@ POSTGRES_DIALER_USER = os.getenv('POSTGRES_DIALER_USER', 'omnidialer')
 POSTGRES_DIALER_DB = os.getenv('POSTGRES_DIALER_DB', 'omnidialer')
 
 POSTGRES_DIALER_PASSWORD = os.getenv('POSTGRES_DIALER_PASSWORD')
+
+POSTGRES_OML_POOL_MIN = int(os.getenv('POSTGRES_OML_POOL_MIN', '1'))
+POSTGRES_OML_POOL_MAX = int(os.getenv('POSTGRES_OML_POOL_MAX', '2'))
+POSTGRES_OML_POOL_TIMEOUT = float(os.getenv('POSTGRES_OML_POOL_TIMEOUT', '5'))
+
+POSTGRES_DIALER_POOL_MIN = int(os.getenv('POSTGRES_DIALER_POOL_MIN', '1'))
+POSTGRES_DIALER_POOL_MAX = int(os.getenv('POSTGRES_DIALER_POOL_MAX', '2'))
+POSTGRES_DIALER_POOL_TIMEOUT = float(os.getenv('POSTGRES_DIALER_POOL_TIMEOUT', '5'))
 
 DIALER_ACD_HOST = os.getenv('DIALER_ACD_HOST', 'omlacd')
 
@@ -205,16 +214,39 @@ class AverageWorker(DialerWorker):
     @classmethod
     def get_oml_connection(cls):
         if cls.POSTGRES_OML_POOL is None:
-            cls.POSTGRES_OML_POOL = ConnectionPool(cls.POSTGRES_OML_CONNECTION_STR,
-                                                   min_size=1, max_size=2, max_idle=120)
-        return cls.POSTGRES_OML_POOL.connection()
+            cls.POSTGRES_OML_POOL = ConnectionPool(
+                cls.POSTGRES_OML_CONNECTION_STR,
+                min_size=POSTGRES_OML_POOL_MIN,
+                max_size=POSTGRES_OML_POOL_MAX,
+                max_idle=120,
+            )
+        try:
+            return cls.POSTGRES_OML_POOL.connection(timeout=POSTGRES_OML_POOL_TIMEOUT)
+        except PoolTimeout:
+            logger.exception('Timeout obtaining connection from OML pool')
+            raise
 
     @classmethod
     def get_dialer_connection(cls):
         if cls.POSTGRES_DIALER_POOL is None:
-            cls.POSTGRES_DIALER_POOL = ConnectionPool(cls.POSTGRES_DIALER_CONNECTION_STR,
-                                                      min_size=1, max_size=2, max_idle=120)
-        return cls.POSTGRES_DIALER_POOL.connection()
+            cls.POSTGRES_DIALER_POOL = ConnectionPool(
+                cls.POSTGRES_DIALER_CONNECTION_STR,
+                min_size=POSTGRES_DIALER_POOL_MIN,
+                max_size=POSTGRES_DIALER_POOL_MAX,
+                max_idle=120,
+            )
+        try:
+            return cls.POSTGRES_DIALER_POOL.connection(timeout=POSTGRES_DIALER_POOL_TIMEOUT)
+        except PoolTimeout:
+            logger.exception('Timeout obtaining connection from DIALER pool')
+            raise
+
+    @classmethod
+    def shutdown(cls):
+        if cls.POSTGRES_OML_POOL is not None:
+            cls.POSTGRES_OML_POOL.close()
+        if cls.POSTGRES_DIALER_POOL is not None:
+            cls.POSTGRES_DIALER_POOL.close()
 
     @classmethod
     def insert_job(cls, job):
@@ -1649,3 +1681,6 @@ class AverageWorker(DialerWorker):
         if action == "stop":
             running = False
         return AdminRender.render_status_dialer(running)
+
+
+atexit.register(AverageWorker.shutdown)

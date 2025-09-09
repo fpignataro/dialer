@@ -6,8 +6,6 @@ import pickle
 
 import logging
 
-import psycopg
-
 LOGLEVEL = os.environ.get('PYTHON_LOGLEVEL', 'INFO').upper()
 
 logger = logging.getLogger(__name__)
@@ -19,7 +17,7 @@ def restore_redis_from_postgres():
     """Restore history of the contact in campaign to Redis from the values saved in Postgres"""
     # this is useful in cases Redis failures
     AverageWorker.connect_redis_dialer()
-    with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+    with AverageWorker.get_dialer_connection() as conn_dialer:
         cursor_dialer = conn_dialer.cursor()
         size = 1000
         cursor_dialer.execute('select history, id_contact, id_campaign, status, phone_numbers_list,'

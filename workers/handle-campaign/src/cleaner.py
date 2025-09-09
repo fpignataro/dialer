@@ -8,8 +8,6 @@ import logging
 
 import os
 
-import psycopg
-
 LOGLEVEL = os.environ.get('PYTHON_LOGLEVEL', 'INFO').upper()
 
 logger = logging.getLogger(__name__)
@@ -24,10 +22,12 @@ def clean():
     AverageWorker.REDIS_DIALER_CONNECTION.flushdb()
 
     # setting all contacts for campaign 4 in status == CREATED
-    with psycopg.connect(AverageWorker.POSTGRES_DIALER_CONNECTION_STR) as conn_dialer:
+    with AverageWorker.get_dialer_connection() as conn_dialer:
         cursor_dialer = conn_dialer.cursor()
-        cursor_dialer.execute("UPDATE contact_in_campaign SET status = 2, history = '{}' "
-                              "WHERE id_campaign = 4;")
+        cursor_dialer.execute(
+            "UPDATE contact_in_campaign SET status = 2, history = '{}' "
+            "WHERE id_campaign = 4;"
+        )
 
     logger.debug('Campaign is ready to be started from scratch again')
 

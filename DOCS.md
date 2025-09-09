@@ -12,6 +12,14 @@ The system is designed to run on every GNU/Linux system that supports bash, dock
 It can run in the same host OML is running or on an external host by configuring the environment variables present in the _env_ file.
 The relevant environment variables are in this case: *REDIS_OML_SERVER*, *REDIS_OML_PORT*, *ASTERISK_APP*, *ASTERISK_USER*, *ASTERISK_PASS*, *ASTERISK_HOST*, *ASTERISK_PORT*, *DIALER_ACD_HOST*, *POSTGRES_OML_PASSWORD*, *POSTGRES_OML_SERVER* and *POSTGRES_OML_PORT*.
 
+PostgreSQL connection pools can be tuned through the following variables to avoid saturating the database:
+
+- `POSTGRES_OML_POOL_MIN` / `POSTGRES_OML_POOL_MAX` – min and max connections for the OML pool (default 1/2).
+- `POSTGRES_DIALER_POOL_MIN` / `POSTGRES_DIALER_POOL_MAX` – min and max connections for the DIALER pool (default 1/2).
+- `POSTGRES_OML_POOL_TIMEOUT` / `POSTGRES_DIALER_POOL_TIMEOUT` – seconds to wait for a free connection before timing out (default 5).
+
+Set these values in the `.env` file according to the capacity of your PostgreSQL server.
+
 Usage:
 
 The simplest way to use the system is to run the script start-dedicated.bash
