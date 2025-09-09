@@ -23,8 +23,6 @@ from handler.naive import (AverageWorker, ACTIVE, PAUSED, CREATED, FINALIZED, ST
 
 class MyTestSuite(unittest.TestCase):
 
-    ORIGINAL_PSYCOPG_CONNECT = psycopg.connect
-
     def setUp(self):
         self.fetchmany_counter = 0
         self._create_campaign()
@@ -72,14 +70,9 @@ class MyTestSuite(unittest.TestCase):
                      True)]
         return []
 
-    def mocked_psycopg_connect(self, connection_str):
-        if connection_str == AverageWorker.POSTGRES_OML_CONNECTION_STR:
-            return MagicMock()
-        return self.ORIGINAL_PSYCOPG_CONNECT(connection_str)
-
     def _create_campaign(self):
         # mocking Postgres connection to OML
-        psycopg.connect = MagicMock(side_effect=self.mocked_psycopg_connect)
+        AverageWorker.get_oml_connection = MagicMock()
         # mocking get_campaign_data
         self.campaign_id_data = (
             4, 2, 'test_dialer_01', datetime.date(2024, 8, 21),
