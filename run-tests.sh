@@ -6,8 +6,6 @@ else
     docker-compose --env-file .env-tests -f docker-compose-test.yml up -d --remove-orphans
 fi
 
-docker ps
-
 docker exec omnidialer-worker-test sh -c "python -m unittest tests.py --failfast; exit \$?"
 
 TEST_EXIT_CODE=$?
