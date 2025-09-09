@@ -15,7 +15,7 @@ test:
   stage: test
   image: docker:20.10.15-alpine3.15
   script:
-    - bash run-tests.bash
+    - sh run-tests.sh
 
 # Template genérico para builds
 .build_template:
