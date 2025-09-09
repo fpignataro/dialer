@@ -789,8 +789,8 @@ class AverageWorker(DialerWorker):
             return -1
         return int(active_channels)
 
-    @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
+    @classmethod
     def get_campaign_max_available_channels(cls, id_campaign):
         with cls.get_dialer_connection() as conn_dialer:
             cursor_dialer = conn_dialer.cursor()
