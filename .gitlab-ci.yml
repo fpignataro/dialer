@@ -14,21 +14,6 @@ lint:
 test:
   stage: test
   image: docker:20.10.15-alpine3.15
-  cache:
-    key: docker-compose-bin
-    paths:
-      - .docker/cli-plugins/docker-compose
-  before_script:
-    - apk add --no-cache curl
-    - mkdir -p .docker/cli-plugins
-    - export DOCKER_CONFIG=$CI_PROJECT_DIR/.docker
-    - if [ ! -f "$DOCKER_CONFIG/cli-plugins/docker-compose" ]; then
-        echo "Descargando docker-compose...";
-        curl -SL "https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-x86_64" \
-          -o "$DOCKER_CONFIG/cli-plugins/docker-compose";
-        chmod +x "$DOCKER_CONFIG/cli-plugins/docker-compose";
-      fi
-    - docker compose version
   script:
     - bash run-tests.bash
 
