@@ -10,10 +10,6 @@ $ docker-compose up -d
 
 A flask server would be running at 0.0.0.0:1440 with a Gearman job server and the required Gearman workers.
 
-Another option is to run directly:
-
-$ docker-compose -f docker-compose-full.yml up -d
-
 Do:
 
 $ docker run --rm -itd -p 4731:4731 --network=<oml-docker-network> --name=gearman_job_server_1 artefactual/gearmand:1.1.18-alpine
