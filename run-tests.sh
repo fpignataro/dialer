@@ -6,6 +6,6 @@ else
     docker-compose --env-file .env-tests -f docker-compose-test.yml up -d --remove-orphans
 fi
 
-docker exec omnidialer-worker-test python -m unittest tests.py --failfast
+docker exec omnidialer-worker-test sh -c "python -m unittest tests.py --failfast"
 
 docker-compose --env-file .env-tests -f docker-compose-test.yml down
