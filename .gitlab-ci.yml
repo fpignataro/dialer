@@ -1,9 +1,10 @@
 stages:
+  - lint
   - test
   - build
 
 lint:
-  stage: test
+  stage: lint
   image: python:3.9-alpine
   before_script:
     - python -m pip install --upgrade pip
