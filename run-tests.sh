@@ -8,6 +8,6 @@ fi
 
 docker ps
 
-docker exec omnidialer-worker-test sh -c "python -m unittest tests.py --failfast"
+docker run --rm omnidialer-worker-test sh -c "python -m unittest tests.py --failfast"
 
 docker-compose --env-file .env-tests -f docker-compose-test.yml down
