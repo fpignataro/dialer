@@ -14,8 +14,6 @@ Las variables de entorno relevantes en este caso son: *GEARMAN_OML_SERVER*, *GEA
 
 Uso:
 
-La forma más sencilla de utilizar el sistema es ejecutar el script start-dedicated.bash
-
 Asegúrate de tener Docker y Docker-Compose instalados y de que tienes la shell bash disponible.
 
 Luego, realiza lo siguiente:
@@ -335,6 +333,10 @@ Los datos guardados en Redis están relacionados con el historial de contactos e
 El sistema también publica en canales PUBSUB información sobre informes y estado de las campañas.
 
 También es posible agendar llamadas usando un scheduler personalizado.
+
+Debería haber un worker de la función de Gearman 'process-campaign' por cada campaña discando en paralelo.
+
+El sistema también incluye un simple admin que permite algun grado de administración de las campañas y manipular el status del sistema (start, stop y restart) de forma controlada.
 
 Escalabilidad horizontal
 ========================
