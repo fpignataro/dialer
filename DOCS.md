@@ -153,6 +153,8 @@ The add-incidence-rule-disposition endpoint is meant to be used by OML to signal
 
 The value <id_campaign> correspond to the id of a campaign in OML and OMD.
 
+Note: if the parameter 'disposition_options' is -2 the system will handle as an AMD(TERMINATED) event.
+
 #### Method
 - **HTTP Method:** `POST`
 
