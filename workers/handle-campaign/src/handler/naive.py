@@ -39,6 +39,8 @@ scheduler.add_jobstore(
     host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, db=3
 )
 
+scheduler.start()
+
 LOGLEVEL = os.environ.get('PYTHON_LOGLEVEL', 'INFO').upper()
 
 logger = logging.getLogger(__name__)
@@ -1575,7 +1577,7 @@ class AverageWorker(DialerWorker):
         id_campaign = data['id_campaign']
         datetime_agenda_str = data.get('datetime_agenda', '')
         # datetime_agenda_str = '19/09/22 13:55:26' ## for example
-        datetime_agenda = datetime.strptime(datetime_agenda_str, '%d/%m/%y %H:%M:%S')
+        datetime_agenda = datetime.datetime.strptime(datetime_agenda_str, '%d/%m/%y %H:%M:%S')
         phone_number = data.get('phone_number', '')
         id_contact = data.get('id_contact', '')
         schedule_type = data.get('type', '')
