@@ -14,6 +14,9 @@ import requests
 import datetime
 import time
 
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor
+
 from datetime import timedelta
 from decimal import Decimal
 from time import sleep
@@ -24,6 +27,17 @@ from settings.default import (REDIS_DIALER_PORT, REDIS_DIALER_SERVER, GEARMAN_JO
 import logging
 
 from ui.rendering import AdminRender
+
+executors = {
+    'default': ThreadPoolExecutor(1)
+}
+
+scheduler = BackgroundScheduler(executors=executors)
+
+scheduler.add_jobstore(
+    'redis', jobs_key='scheduler.jobs', run_times_key='scheduler.run_times',
+    host=REDIS_DIALER_SERVER, port=REDIS_DIALER_PORT, db=3
+)
 
 LOGLEVEL = os.environ.get('PYTHON_LOGLEVEL', 'INFO').upper()
 
@@ -1547,13 +1561,29 @@ class AverageWorker(DialerWorker):
             return b'Incidence rule was updated'
 
     @classmethod
+    def schedule_contact(cls, phone_number, id_campaign, id_contact):
+        logger.debug(f'Campaign {id_campaign}: calling scheduled agenda for contact {id_contact}')
+        message = json.dumps({'contact': [id_contact, id_campaign, phone_number],
+                              'id_campaign': id_campaign})
+        cls.GM_CLIENT.submit_job('process-contact', message, background=True)
+        return 'GD!!!'
+
+    @classmethod
     @job_handler_decorator
     def schedule_agenda(cls, worker, job):
         data = cls.decode_payload(job.data)
         id_campaign = data['id_campaign']
-        host = SCHEDULER_API_HOST
-        uri = f'http://{host}/add-agenda/{id_campaign}'
-        requests.post(uri, json=data)
+        datetime_agenda_str = data.get('datetime_agenda', '')
+        # datetime_agenda_str = '19/09/22 13:55:26' ## for example
+        datetime_agenda = datetime.strptime(datetime_agenda_str, '%d/%m/%y %H:%M:%S')
+        phone_number = data.get('phone_number', '')
+        id_contact = data.get('id_contact', '')
+        schedule_type = data.get('type', '')
+        scheduler.add_job(
+            cls.schedule_contact, 'date', run_date=datetime_agenda,
+            args=[phone_number, id_campaign, id_contact],
+            name=schedule_type
+        )
         return b'Agenda was scheduled'
 
     @classmethod
