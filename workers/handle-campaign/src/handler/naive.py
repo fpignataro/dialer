@@ -10,7 +10,6 @@ import os
 import redis
 from psycopg_pool import ConnectionPool
 import gearman.client
-import requests
 import datetime
 import time
 
