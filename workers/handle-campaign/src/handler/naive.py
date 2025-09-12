@@ -1586,7 +1586,8 @@ class AverageWorker(DialerWorker):
         schedule_type = data.get('type', 'agenda')
         if schedule_type == 'process-campaign':
             datetime_start_str = data.get('datetime_start', '')
-            datetime_start_campaign = datetime.strptime(datetime_start_str, '%d/%m/%y %H:%M:%S')
+            datetime_start_campaign = datetime.datetime.strptime(
+                datetime_start_str, '%d/%m/%y %H:%M:%S')
             name = f'scheduled_process_campaign_{id_campaign}'
             scheduler.add_job(
                 cls.schedule_process_campaign, 'date', run_date=datetime_start_campaign,
