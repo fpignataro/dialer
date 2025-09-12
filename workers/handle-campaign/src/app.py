@@ -1,11 +1,12 @@
 from settings.default import GEARMAN_JOB_SERVERS, GEARMAN_JOBS
 
-from handler.naive import AverageWorker
+from handler.naive import AverageWorker, SchedulerWorker
 
 import gearman
 
-
 WORKER = AverageWorker
+
+SCHEDULER_WORKER = SchedulerWorker
 
 gm_worker = gearman.GearmanWorker(GEARMAN_JOB_SERVERS)
 
@@ -33,7 +34,7 @@ JOBS_TO_METHODS = {
     # medium processes
     'send-reports': WORKER.send_reports,
     # scheduled processes
-    'schedule-agenda': WORKER.schedule_agenda
+    'schedule-agenda': SCHEDULER_WORKER.schedule_agenda
 }
 
 
