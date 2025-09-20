@@ -1,14 +1,21 @@
-FROM python:3.8-alpine AS build
+# syntax=docker/dockerfile:1.4
+FROM python:3.12-alpine as builder
 
 WORKDIR /app
 
-COPY requirements.txt /app/
-RUN pip install -r ./requirements.txt
+RUN apk add git
 
-FROM python:3.8-alpine AS run
+COPY requirements.txt /app
+
+RUN  pip3 install -r requirements.txt
+
+FROM python:3.12-alpine AS run
 
 WORKDIR /app
-COPY --from=build /usr/local /usr/local
+
+RUN apk add tzdata
+
+COPY --from=builder /usr/local /usr/local
 COPY src/* /app/
 
 CMD ["python3",  "app.py" ]

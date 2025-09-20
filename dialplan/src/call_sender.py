@@ -10,7 +10,7 @@ ASTERISK_USER = os.getenv('ASTERISK_USER', 'default_user')
 ASTERISK_PASS = os.getenv('ASTERISK_PASS', 'default_pass')
 ASTERISK_HOST = os.getenv('ASTERISK_HOST', 'dialer_acd')
 ASTERISK_PORT = os.getenv('ASTERISK_PORT', '8888')
-ASTERISK_APP = os.getenv('ASTERISK_APP', 'call_manager')
+ASTERISK_APP = os.getenv('ASTERISK_APP', 'dialer_dialplan')
 PSTN_GATEWAY = os.getenv('PSTN_GW', 'pstn_gateway')
 
 # Verifica que se hayan proporcionado los argumentos necesarios

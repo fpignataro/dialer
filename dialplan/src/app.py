@@ -35,12 +35,6 @@ class CallManager:
             db=int(os.getenv('REDIS_DB', 0))
         )
 
-        if not self.redis_client.exists("dialer_pstn_calls"):
-            self.redis_client.set("dialer_pstn_calls", 0)
-            logging.info("Clave 'dialer_pstn_calls' was created")
-        else:
-            logging.info("Clave 'dialer_pstn_calls' exists")
-
         self.pstn_channel_ids = set()
         self.agent_to_pstn = {}
         self.channel_dialstatus = {}
@@ -165,6 +159,26 @@ class CallManager:
             # Parsear caller_name para obtener id_camp, id_customer, tel_customer
             id_camp, id_customer, tel_customer = self.parse_caller_name(caller_name)
 
+            call_data = None
+
+            # Guardar el dialstatus asociado al canal correcto para usarlo en
+            # el evento ChannelDestroyed. Para llamadas PSTN el identificador
+            # relevante es el peer_id; en otros casos usamos el channel_id.
+            dialstatus_key = None
+            if re.match(r'^\d+@pstn_gateway$', dialstring):
+                dialstatus_key = peer_id or channel_id
+            else:
+                dialstatus_key = channel_id or peer_id
+
+            if dialstatus_key:
+                status_to_store = dialstatus if dialstatus else 'UNKNOWN'
+                if dialstatus or dialstatus_key not in self.channel_dialstatus:
+                    self.channel_dialstatus[dialstatus_key] = status_to_store
+                logging.debug(
+                    "Stored dialstatus '%s' for channel %s", status_to_store,
+                    dialstatus_key
+                )
+
             # Verificar si es una llamada DIALER-PSTN
             if re.match(r'^\d+@pstn_gateway$', dialstring):
                 if dialstatus == '':
@@ -204,7 +218,6 @@ class CallManager:
                     else:
                         logging.warning("PSTNGW_HOSTNAME not set or no data extracted from caller "
                                         "name for ANSWER event. Message not published.")
-                        self.publish_message_if_needed(call_data, dialstatus)
 
                 else:
                     # Otros dialstatus (RINGING, BUSY, CONGESTION, NOANSWER, etc.)
@@ -220,8 +233,8 @@ class CallManager:
                         self.publish_message_if_needed(call_data, dialstatus)
                     else:
                         logging.warning("PSTNGW_HOSTNAME not set or no data extracted from caller "
-                                        "name for ANSWER event. Message not published.")
-                        self.publish_message_if_needed(call_data, dialstatus)
+                                        "name for %s event. Message not published.",
+                                        dialstatus or 'UNKNOWN')
 
             elif re.match(r'^camp_\d+@omlacd$', dialstring):
                 # Es una llamada DIALER-AGENT
@@ -315,8 +328,33 @@ class CallManager:
 
             id_camp, id_customer, tel_customer = self.parse_caller_name(caller_name)
 
-            dialstatus = self.channel_dialstatus.get(channel_id, "UNKNOWN")
+            dialstatus = self.channel_dialstatus.get(channel_id)
 
+            if not dialstatus:
+                mapped_channel_id = self.agent_to_pstn.get(channel_id)
+                if mapped_channel_id:
+                    dialstatus = self.channel_dialstatus.get(mapped_channel_id)
+                    if dialstatus:
+                        logging.debug(
+                            "Recovered dialstatus '%s' from mapped channel %s",
+                            dialstatus, mapped_channel_id
+                        )
+
+            if not dialstatus:
+                fallback_status = (
+                    event.get('dialstatus') or
+                    event.get('cause_txt') or
+                    event.get('cause')
+                )
+                if fallback_status:
+                    dialstatus = str(fallback_status)
+                    logging.debug(
+                        "Using fallback dialstatus '%s' for channel %s",
+                        dialstatus, channel_id
+                    )
+                else:
+                    dialstatus = "UNKNOWN"
+                    
             if channel_id in self.pstn_channel_ids:
                 if id_camp:
                     redis_key = f"OML:CALLS:{id_camp}:DIALER"
@@ -705,8 +743,11 @@ class CallManager:
 
         def _send() -> bool:
             try:
+                logging.info(
+                    "Enviando job Gearman con tarea '%s'", self.gearman_task
+                )
                 job = self.gearman_client.submit_job(
-                    "call_log_processor",
+                    self.gearman_task,
                     payload,
                     background=True
                 )
@@ -747,7 +788,7 @@ if __name__ == "__main__":
     ASTERISK_PASS = os.getenv('ASTERISK_PASS', 'default_pass')
     ASTERISK_HOST = os.getenv('ASTERISK_HOST', 'dialer-acd')
     ASTERISK_PORT = os.getenv('ASTERISK_PORT', '8888')
-    ASTERISK_APP = 'call_manager'
+    ASTERISK_APP = 'dialer_dialplan'
 
     ari_client = ARI(
         user=ASTERISK_USER,
