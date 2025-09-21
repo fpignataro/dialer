@@ -14,19 +14,40 @@ from ari_manager import ARI
 from gearman.job import JOB_CREATED
 from gearman.errors import ServerUnavailable, ConnectionError
 
+PYTHON_LOGLEVEL = os.environ.get("PYTHON_LOGLEVEL", "info")
 
-logging.basicConfig(
-    stream=sys.stdout,
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%Y-%m-%d %H:%M:%S'
-)
+if PYTHON_LOGLEVEL.lower() == "debug":
+    class JsonFormatter(logging.Formatter):
+        def format(self, record):
+            log_record = {
+                "timestamp": time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(record.created)),
+                "level": record.levelname,
+                "message": record.getMessage(),
+            }
+            return json.dumps(log_record)
+
+    json_handler = logging.StreamHandler(sys.stdout)
+    json_handler.setFormatter(JsonFormatter())
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        handlers=[json_handler]
+    )
+else:
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
 
 
 class CallManager:
     def __init__(self):
         self.ari = ARI()
         self.calls = {}
+        self.ws = None
+        self.shutting_down = False
 
         # Init redis cli
         self.redis_client = redis.Redis(
@@ -62,11 +83,22 @@ class CallManager:
             return None
 
     def on_message(self, ws, message):
-        if "RTP" not in message and "ChannelVarset" not in message:
-            logging.info("\n" + "=" * 50 + "\nJSON event from WS:\n%s\n%s",
-                         json.dumps(json.loads(message), indent=2), "=" * 50)
 
         event_to_dict = json.loads(message)
+
+        if "RTP" not in message and "ChannelVarset" not in message:
+            logger = logging.getLogger()
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(
+                    "\n" + "=" * 50 + "\nJSON event from WS:\n%s\n%s",
+                    json.dumps(event_to_dict, indent=2),
+                    "=" * 50
+                )
+            else:
+                logger.info(
+                    "JSON event from WS: %s",
+                    event_to_dict.get("type", "Unknown")
+                )
 
         if event_to_dict.get("type") == "Dial":
             peer = event_to_dict.get("peer")
@@ -80,38 +112,33 @@ class CallManager:
         else:
             logging.info("Non-Dial Event: %s", event_to_dict.get("type"))
 
+        event_handlers = {
+            'StasisStart': self.handle_stasis_start,
+            'StasisEnd': self.handle_stasis_end,
+            'ChannelDtmfReceived': self.handle_channel_dtmf_received,
+            'ChannelHangupRequest': self.handle_channel_hangup_request,
+            'ChannelStateChange': self.handle_channel_state_change,
+            'ChannelCreated': self.handle_channel_created,
+            'ChannelDestroyed': self.handle_channel_destroyed,
+            'BridgeCreated': self.handle_bridge_created,
+            'BridgeDestroyed': self.handle_bridge_destroyed,
+            'PlaybackStarted': self.handle_playback_started,
+            'PlaybackFinished': self.handle_playback_finished,
+            'Dial': self.handle_dial,
+        }
+
         event_type = event_to_dict.get('type', 'default')
-        if event_type == 'StasisStart':
-            self.handle_stasis_start(event_to_dict)
-        elif event_type == 'StasisEnd':
-            self.handle_stasis_end(event_to_dict)
-        elif event_type == 'ChannelDtmfReceived':
-            self.handle_channel_dtmf_received(event_to_dict)
-        elif event_type == 'ChannelHangupRequest':
-            self.handle_channel_hangup_request(event_to_dict)
-        elif event_type == 'ChannelStateChange':
-            self.handle_channel_state_change(event_to_dict)
-        elif event_type == 'ChannelCreated':
-            self.handle_channel_created(event_to_dict)
-        elif event_type == 'ChannelDestroyed':
-            self.handle_channel_destroyed(event_to_dict)
-        elif event_type == 'BridgeCreated':
-            self.handle_bridge_created(event_to_dict)
-        elif event_type == 'BridgeDestroyed':
-            self.handle_bridge_destroyed(event_to_dict)
-        elif event_type == 'PlaybackStarted':
-            self.handle_playback_started(event_to_dict)
-        elif event_type == 'PlaybackFinished':
-            self.handle_playback_finished(event_to_dict)
-        elif event_type == 'Dial':
-            self.handle_dial(event_to_dict)
+
+        handler = event_handlers.get(event_type)
+        if handler:
+            handler(event_to_dict)
 
     def on_error(self, ws, error):
         logging.error("WebSocket Error: %s", error)
 
     def on_close(self, ws, close_status_code, close_msg):
         logging.info("WebSocket closed connection")
-        self.reconnect()
+        # The reconnection logic is now handled by the loop in start_websocket.
 
     def on_open(self, ws):
         logging.info("WebSocket connection opened")
@@ -119,25 +146,39 @@ class CallManager:
     def reconnect(self):
         logging.info("Attempting to reconnect in 10 seconds...")
         time.sleep(10)
-        self.start_websocket()
+        # The recursive call to start_websocket() is removed to prevent stack overflow.
+        # The main loop in start_websocket will handle reconnection.
+        logging.warning("reconnect() called, but it's part of an old and problematic reconnect logic.")
 
     def start_websocket(self):
-        ws = self.client()
-
         def signal_handler(signum, frame):
             logging.info("Signal received, shutting down...")
-            ws.close()
-            self.shutdown()
+            self.shutting_down = True
+            if self.ws:
+                self.ws.close()
 
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
 
-        ws.on_open = self.on_open
-        ws.on_message = self.on_message
-        ws.on_error = self.on_error
-        ws.on_close = self.on_close
+        while not self.shutting_down:
+            self.ws = self.client()
+            if self.ws is None:
+                logging.error("Unable to create WebSocket client instance. Retrying in 10 seconds.")
+                time.sleep(10)
+                continue
 
-        ws.run_forever()
+            self.ws.on_open = self.on_open
+            self.ws.on_message = self.on_message
+            self.ws.on_error = self.on_error
+            self.ws.on_close = self.on_close
+
+            self.ws.run_forever()
+
+            if not self.shutting_down:
+                logging.info("WebSocket connection lost. Attempting to reconnect in 10 seconds...")
+                time.sleep(10)
+
+        self.shutdown()
 
     def shutdown(self):
         # Cerramos conexión con RabbitMQ
