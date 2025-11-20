@@ -49,9 +49,15 @@ if not dial_timeout.isdigit() or int(dial_timeout) <= 0:
 FORCED_QUEUE_TIMEOUT = 20
 FORCED_CALL_TYPE = '2'
 if queue_timeout != str(FORCED_QUEUE_TIMEOUT):
-    logging.info(f'Se ignora queue_timeout={queue_timeout} y se fuerza a {FORCED_QUEUE_TIMEOUT} para emular el worker.')
+    logging.info(
+        f"Se ignora queue_timeout={queue_timeout} y se fuerza a "
+        f"{FORCED_QUEUE_TIMEOUT} para emular el worker."
+    )
 if call_type_in != FORCED_CALL_TYPE:
-    logging.info(f'Se ignora call_type={call_type_in} y se fuerza a {FORCED_CALL_TYPE} (saliente a OML ACD).')
+    logging.info(
+        f"Se ignora call_type={call_type_in} y se fuerza a "
+        f"{FORCED_CALL_TYPE} (saliente a OML ACD)."
+    )
 
 # Aplicar prefijo si viene por env (simula get_prefix)
 phone_to_dial = f"{OUTBOUND_PREFIX}{tel_number}" if OUTBOUND_PREFIX else tel_number
