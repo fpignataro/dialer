@@ -1176,23 +1176,58 @@ class AverageWorker(DialerWorker):
     @classmethod
     def get_allowed_attempts_according_agents(cls, id_campaign, active_channels,
                                               campaign_max_available_channels):
+        """
+        Calcula cuántos intentos de llamada nuevos puede iniciar la campaña
+        en función de:
+        - canales ya activos de la campaña
+        - canales máximos configurados para la campaña
+        - agentes disponibles en la campaña
+        - número total de agentes disponibles en el sistema
+        - cantidad de campañas activas (reparto "justo" por campaña)
+        """
         available_agents, total_available_agents = cls.get_number_available_agents(id_campaign)
         active_campaigns = cls.get_number_active_campaigns()
-        logger.debug("Campaign {0}: active_campaigns={1}".format(id_campaign, active_campaigns))
-        logger.debug("Campaign {0}: available_agents={1}".format(id_campaign, available_agents))
-        logger.debug("Campaign {0}: total_available_agents={1}".format(
-            id_campaign, total_available_agents))
-        if active_channels < campaign_max_available_channels:
-            if total_available_agents >= active_channels:
-                if active_campaigns > 0:
-                    # TODO: figure out how to get back to this heuristic when the agents
-                    # are assigned to the same campaign
-                    # return available_agents / active_campaigns
-                    return available_agents
-                return 0
-            logger.debug(f"Campaign {id_campaign}: too much calls for available agents")
+
+        logger.debug("Campaign %s: active_campaigns=%s", id_campaign, active_campaigns)
+        logger.debug("Campaign %s: available_agents=%s", id_campaign, available_agents)
+        logger.debug("Campaign %s: total_available_agents=%s", id_campaign, total_available_agents)
+
+        # No hay más canales libres configurados para esta campaña
+        if active_channels >= campaign_max_available_channels:
+            logger.debug("Campaign %s: no free channels (active=%s, max=%s)",
+                         id_campaign, active_channels, campaign_max_available_channels)
             return 0
-        return 0
+
+        # Sin agentes disponibles o sin agentes totales -> no marcar contactos
+        if available_agents <= 0 or total_available_agents <= 0:
+            logger.debug("Campaign %s: no available agents (avail=%s, total=%s)",
+                         id_campaign, available_agents, total_available_agents)
+            return 0
+
+        # Reparto "justo" de agentes entre campañas activas
+        num_active_campaigns = max(active_campaigns, 1)
+        per_campaign_quota = max(1, total_available_agents // num_active_campaigns)
+
+        # Cuánto margen de canales tiene esta campaña respecto a su cuota
+        headroom = per_campaign_quota - active_channels
+        logger.debug("Campaign %s: per_campaign_quota=%s headroom=%s",
+                     id_campaign, per_campaign_quota, headroom)
+
+        # Si ya estamos por encima o al límite de la cuota, no habilitamos nuevos intentos
+        if headroom <= 0:
+            logger.debug("Campaign %s: too many calls for available agents (headroom<=0)",
+                         id_campaign)
+            return 0
+
+        # Límite por agentes disponibles y por cuota
+        allowed = min(available_agents, headroom)
+
+        # Nunca devolver negativo
+        allowed = max(0, int(allowed))
+
+        logger.debug("Campaign %s: allowed_attempts_according_agents=%s",
+                     id_campaign, allowed)
+        return allowed
 
     @classmethod
     @timed_lru_cache(seconds=600, maxsize=128)
