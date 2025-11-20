@@ -1175,58 +1175,47 @@ class AverageWorker(DialerWorker):
 
     @classmethod
     def get_allowed_attempts_according_agents(cls, id_campaign, active_channels,
-                                              campaign_max_available_channels):
+                                            campaign_max_available_channels):
         """
-        Calcula cuántos intentos de llamada nuevos puede iniciar la campaña
-        en función de:
+        Devuelve cuántos intentos NUEVOS puede iniciar la campaña según:
         - canales ya activos de la campaña
         - canales máximos configurados para la campaña
         - agentes disponibles en la campaña
-        - número total de agentes disponibles en el sistema
-        - cantidad de campañas activas (reparto "justo" por campaña)
+        (la "justicia" entre campañas ya la maneja allowed_calls_prority_percentage)
         """
         available_agents, total_available_agents = cls.get_number_available_agents(id_campaign)
-        active_campaigns = cls.get_number_active_campaigns()
 
-        logger.debug("Campaign %s: active_campaigns=%s", id_campaign, active_campaigns)
-        logger.debug("Campaign %s: available_agents=%s", id_campaign, available_agents)
-        logger.debug("Campaign %s: total_available_agents=%s", id_campaign, total_available_agents)
+        logger.debug("Campaign %s: available_agents=%s total_available_agents=%s",
+                    id_campaign, available_agents, total_available_agents)
 
         # No hay más canales libres configurados para esta campaña
         if active_channels >= campaign_max_available_channels:
             logger.debug("Campaign %s: no free channels (active=%s, max=%s)",
-                         id_campaign, active_channels, campaign_max_available_channels)
+                        id_campaign, active_channels, campaign_max_available_channels)
             return 0
 
-        # Sin agentes disponibles o sin agentes totales -> no marcar contactos
-        if available_agents <= 0 or total_available_agents <= 0:
-            logger.debug("Campaign %s: no available agents (avail=%s, total=%s)",
-                         id_campaign, available_agents, total_available_agents)
+        # Si no hay agentes para ESTA campaña, no disques
+        if available_agents <= 0:
+            logger.debug("Campaign %s: no available agents for this campaign (avail=%s)",
+                        id_campaign, available_agents)
             return 0
 
-        # Reparto "justo" de agentes entre campañas activas
-        num_active_campaigns = max(active_campaigns, 1)
-        per_campaign_quota = max(1, total_available_agents // num_active_campaigns)
+        # Máximo de canales que me gustaría tener para esta campaña según agentes
+        # (1 canal por agente "equivalente")
+        desired_total_channels = min(available_agents, campaign_max_available_channels)
 
-        # Cuánto margen de canales tiene esta campaña respecto a su cuota
-        headroom = per_campaign_quota - active_channels
-        logger.debug("Campaign %s: per_campaign_quota=%s headroom=%s",
-                     id_campaign, per_campaign_quota, headroom)
+        headroom = desired_total_channels - active_channels
+        logger.debug("Campaign %s: desired_total_channels=%s headroom=%s",
+                    id_campaign, desired_total_channels, headroom)
 
-        # Si ya estamos por encima o al límite de la cuota, no habilitamos nuevos intentos
         if headroom <= 0:
-            logger.debug("Campaign %s: too many calls for available agents (headroom<=0)",
-                         id_campaign)
+            logger.debug("Campaign %s: already at desired load (headroom<=0)",
+                        id_campaign)
             return 0
 
-        # Límite por agentes disponibles y por cuota
-        allowed = min(available_agents, headroom)
-
-        # Nunca devolver negativo
-        allowed = max(0, int(allowed))
-
+        allowed = int(headroom)
         logger.debug("Campaign %s: allowed_attempts_according_agents=%s",
-                     id_campaign, allowed)
+                    id_campaign, allowed)
         return allowed
 
     @classmethod
